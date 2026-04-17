@@ -1,0 +1,493 @@
+# TopViewbot
+
+[简体中文](./README.zh.md)
+
+A lightweight, versatile personal AI assistant featuring a web interface and tunnel support for remote access.
+
+The convenience of Claude / ChatGPT web apps, with the power of Claude Desktop.
+
+Supports programming, file management, information retrieval, content creation, and more through natural language interaction.
+
+**Zero dependencies** - download, extract, and run. No runtime or package manager required.
+
+## Screenshots
+
+<!-- Add your screenshots here, for example: -->
+<!-- ![Chat Interface](./docs/images/chat.png) -->
+<!-- ![Settings](./docs/images/settings.png) -->
+
+## Features
+
+### Core Capabilities
+
+- **Programming** - Code writing, debugging, refactoring, code review, supporting multiple languages and frameworks
+- **File Management** - Read, create, edit, organize files, batch rename, directory structure management
+- **File Preview** - Preview images, code, Markdown, HTML, Office documents in Web UI
+- **File Upload** - Upload files directly through the web interface for AI processing
+- **Command Execution** - Run system commands, script writing, environment configuration, automation
+- **Information Retrieval** - Web search, data analysis, content extraction and summarization
+- **Content Creation** - Document writing, report generation, email drafting, translation, copywriting
+- **Office Tasks** - Meeting notes, scheduling, spreadsheet processing, format conversion
+- **Task Management** - Todo tracking, work breakdown, progress management, reminders
+- **Q&A** - Technical consulting, solution suggestions, troubleshooting, tutoring
+
+### Product Features
+
+- **Web Interface** - Modern chat interface with Markdown rendering, code highlighting, agent console monitoring
+- **Multi-Model Support** - Anthropic Claude, OpenAI, Google Gemini, OpenRouter, and more
+- **Session Working Directory** - Each session can have its own working directory with built-in directory browsing
+- **User Preferences** - Record personal preferences, AI follows your habits across all sessions
+- **Terminal History** - Scrollback history support for terminal output
+- **Tunnel Support** - Built-in ngrok and NATAPP support for public access
+- **Browser Control** - Built-in browser automation via Chrome / Edge extension
+- **Password Protection** - Optional web access password protection (username: `topviewbot`)
+- **Parallel Sessions** - Run up to 10 AI sessions simultaneously
+- **Hot Reload** - Skills and MCP config changes take effect automatically without restart
+- **Ready to Use** - Download and run, includes Bun runtime
+
+### Browser Control
+
+TopViewbot has built-in browser automation with two modes: control the user's own browser via an extension (Chrome / Edge and other Chromium-based browsers), or launch a dedicated AI-controlled browser process. The AI can navigate pages, fill forms, take screenshots, click elements, and more.
+
+**Setup:**
+
+1. Open your browser's extension management page:
+   - Chrome: `chrome://extensions/`
+   - Edge: `edge://extensions/`
+2. Enable **Developer mode** (top-right toggle)
+3. Click **Load unpacked** and select the `browser-extension` folder from your TopViewbot installation
+4. Enable browser control in your config:
+
+```jsonc
+{
+  "browser": {
+    "enabled": true
+  }
+}
+```
+
+> **Note**: The extension uses sensitive permissions (debugger, scripting, all_urls) for full browser automation. Only use in trusted environments.
+
+### Built-in Skills
+
+TopViewbot includes several built-in skills, invoked via `/skill-name`:
+
+| Skill            | Description                                              |
+| ---------------- | -------------------------------------------------------- |
+| `/remember`      | Record user preferences, AI follows them in all sessions |
+| `/pdf`           | PDF processing: extract text, merge/split, form filling  |
+| `/docx`          | Word document creation, editing, revision tracking       |
+| `/pptx`          | PowerPoint presentation creation and editing             |
+| `/mcp-builder`   | Development guide for creating MCP servers               |
+| `/skill-creator` | Development guide for creating custom Skills             |
+
+You can also add custom Skills in `~/.config/topviewbot/skills/`.
+
+> **Tip**: You can install MCP servers and custom Skills simply by telling the AI in chat. Just describe what you need or paste a relevant URL, and the AI will handle the installation automatically.
+
+### Configuration Compatibility
+
+TopViewbot supports integrating configurations from:
+
+| Config Type        | OpenCode | Claude Code | Notes                                                              |
+| ------------------ | -------- | ----------- | ------------------------------------------------------------------ |
+| MCP Servers        | ✅       | ✅          | Can inherit MCP config from OpenCode and Claude Code               |
+| Skills             | ✅       | ✅          | Can inherit custom skills from OpenCode and Claude Code            |
+| Provider Auth      | ✅       | ❌          | Can inherit API Keys and OAuth from OpenCode                       |
+
+Control inheritance through config:
+
+```jsonc
+{
+  "isolation": {
+    "inheritOpencode": true // Inherit OpenCode global/project config
+  },
+  "skills": {
+    "inheritOpencode": true, // Inherit OpenCode skills
+    "inheritClaudeCode": true // Inherit Claude Code skills
+  },
+  "mcp": {
+    "inheritOpencode": true, // Inherit OpenCode MCP servers
+    "inheritClaudeCode": true // Inherit Claude Code MCP servers
+  },
+  "provider": {
+    "inheritOpencode": true // Inherit OpenCode provider auth
+  }
+}
+```
+
+### Custom LLM Providers (OpenAI / Anthropic Protocol)
+
+You can add providers in the Settings page (`Auth Manager -> Custom Providers`) or edit `topviewbot.config.jsonc` directly:
+
+```jsonc
+{
+  "customProviders": {
+    "my-openai": {
+      "name": "My OpenAI",
+      "protocol": "openai",
+      "baseURL": "https://example.com/v1",
+      "models": [{ "id": "gpt-4o-mini", "name": "GPT-4o mini" }]
+    },
+    "my-anthropic": {
+      "name": "My Anthropic",
+      "protocol": "anthropic",
+      "baseURL": "https://anthropic-proxy.example.com",
+      "models": [{ "id": "claude-3-5-sonnet-latest" }]
+    }
+  }
+}
+```
+
+Notes:
+- `customProviders` defines provider structure only (protocol, endpoint, models)
+- API keys are still stored locally via the auth page in `auth.json`
+- Supported `protocol` values are currently `openai` and `anthropic`
+
+## Installation
+
+### Option 1: Download Release (Recommended)
+
+Download from [Releases](https://github.com/contrueCT/topviewbot/releases):
+
+| Platform | Architecture  | Filename                              |
+| -------- | ------------- | ------------------------------------- |
+| Linux    | x64           | `topviewbot-linux-x64-vX.X.X.tar.gz`    |
+| Linux    | ARM64         | `topviewbot-linux-arm64-vX.X.X.tar.gz`  |
+| macOS    | Apple Silicon | `topviewbot-darwin-arm64-vX.X.X.tar.gz` |
+| Windows  | x64           | `topviewbot-windows-x64-vX.X.X.zip`     |
+
+**macOS (Homebrew recommended):**
+
+```bash
+brew install contrueCT/topviewbot/topviewbot
+```
+
+Update with `brew upgrade topviewbot`, uninstall with `brew uninstall topviewbot`.
+
+**Linux:**
+
+```bash
+# Download and extract (Linux x64 example)
+curl -fsSL https://github.com/contrueCT/topviewbot/releases/latest/download/topviewbot-linux-x64.tar.gz | tar -xz
+cd topviewbot-linux-x64
+
+# Run
+./topviewbot
+```
+
+**Windows:**
+
+1. Download `topviewbot-windows-x64-vX.X.X.zip`
+2. Extract to any directory
+3. Double-click `topviewbot.bat` or run from command line
+
+### Option 2: One-Line Install Script (Linux / macOS)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/contrueCT/topviewbot/main/install.sh | bash
+```
+
+After installation, run `topviewbot` from any directory.
+
+### Option 3: Install from Source
+
+Requires [Bun](https://bun.sh).
+
+```bash
+# Clone repository
+git clone https://github.com/contrueCT/topviewbot.git
+cd topviewbot
+
+# Install dependencies
+cd opencode && bun install && cd ..
+cd packages/topviewbot && bun install && cd ../..
+cd web && bun install && cd ..
+
+# Build web frontend
+cd web && bun run build && cd ..
+
+# Run
+bun run topviewbot
+```
+
+## Usage
+
+### First Run
+
+On first run, you'll be prompted to run the setup wizard:
+
+```
+Welcome to TopViewbot! Would you like to run the setup wizard?
+```
+
+The wizard guides you through:
+
+- Server port (default 4096)
+- Password protection (optional)
+- Tunnel configuration (optional, for public access)
+- AI Provider API Key
+
+You can skip and run `topviewbot setup` later.
+
+### Command Line
+
+```bash
+# Start server (default command)
+topviewbot
+
+# Specify port
+topviewbot --port 8080
+topviewbot -p 8080
+
+# Enable tunnel
+topviewbot --tunnel
+topviewbot -t
+
+# Don't open browser automatically
+topviewbot --no-browser
+
+# Run setup wizard
+topviewbot setup
+
+# View config
+topviewbot config show
+
+# Set config value
+topviewbot config set server.port 8080
+
+# Edit config file
+topviewbot config edit
+
+# Show help
+topviewbot --help
+```
+
+### Web Interface
+
+After starting, open `http://127.0.0.1:4096` (or your configured port) in browser.
+
+Features:
+
+- Create multiple sessions with independent working directories
+- Browse and select working directories per session
+- Upload files for AI processing
+- Switch AI models
+- View and manage files
+- Watch AI thinking process in real-time
+- Abort running tasks
+
+### User Preferences
+
+TopViewbot can remember your personal preferences. AI will automatically follow these preferences in all sessions.
+
+#### Setting Preferences
+
+**Option 1: Web Interface**
+
+Click the "Preferences" tab in settings panel to add, edit, or delete preferences.
+
+**Option 2: Use /remember command in chat**
+
+Tell AI your preferences directly in conversation:
+
+```
+/remember Reply in English
+/remember Use 4-space indentation for code
+/remember Don't use emoji
+```
+
+#### Preference Examples
+
+- `Reply in English` - AI will respond in English
+- `Use 4-space indentation for code` - Generated code uses 4-space indentation
+- `Give detailed code explanations` - AI provides more detailed code explanations
+- `Write commit messages in English` - Git commit messages will be in English
+
+Preferences are automatically injected into every conversation prompt.
+
+## Configuration
+
+Config file locations:
+
+- **Project config**: `topviewbot.config.jsonc` (installation directory)
+- **Global config**: `~/.config/topviewbot/config.jsonc` (Linux/macOS) or `%APPDATA%\topviewbot\config.jsonc` (Windows)
+
+### Config Example
+
+```jsonc
+{
+  // Server config
+  "server": {
+    "port": 4096,
+    "hostname": "127.0.0.1",
+    "openBrowser": true,
+  },
+
+  // Password protection (username is fixed as "topviewbot")
+  "auth": {
+    "enabled": true,
+    "password": "your-password",
+  },
+
+  // Tunnel config
+  "tunnel": {
+    "enabled": true,
+    "provider": "ngrok", // or "natapp"
+    "ngrok": {
+      "authToken": "your-ngrok-token",
+    },
+  },
+
+  // AI Provider config
+  "provider": {
+    "anthropic": {
+      "options": {
+        "apiKey": "sk-ant-xxxxx",
+      },
+    },
+  },
+
+  // Default model
+  "model": "anthropic/claude-sonnet-4-20250514",
+}
+```
+
+### Environment Variables
+
+Config files support environment variable substitution:
+
+```jsonc
+{
+  "provider": {
+    "anthropic": {
+      "options": {
+        "apiKey": "{env:ANTHROPIC_API_KEY}",
+      },
+    },
+  },
+}
+```
+
+### Tunnel Configuration
+
+> **Tunnel Security Warning**
+>
+> Enabling tunnel exposes your TopViewbot instance to the internet. Please note:
+>
+> - **Strongly recommended to enable password protection**: Without a password, anyone can access and control your AI assistant
+> - **Tunnel URLs are logged**: Services like ngrok/NATAPP record access logs
+> - **Don't share tunnel URLs**: Unless you trust the recipient
+> - **Close unused tunnels promptly**: Prolonged public exposure increases attack risk
+> - **Avoid processing sensitive data in tunnel mode**: Public transmission may be intercepted
+
+#### ngrok (International)
+
+1. Register at [ngrok](https://ngrok.com)
+2. Get [authtoken](https://dashboard.ngrok.com/authtokens)
+3. Configure:
+
+```jsonc
+{
+  "tunnel": {
+    "enabled": true,
+    "provider": "ngrok",
+    "ngrok": {
+      "authToken": "your-ngrok-token",
+    },
+  },
+}
+```
+
+#### NATAPP (China)
+
+1. Register at [NATAPP](https://natapp.cn)
+2. Create tunnel, get authtoken
+3. Download NATAPP client and add to PATH
+4. Configure:
+
+```jsonc
+{
+  "tunnel": {
+    "enabled": true,
+    "provider": "natapp",
+    "natapp": {
+      "authToken": "your-natapp-token",
+    },
+  },
+}
+```
+
+## Update
+
+### Release Installation
+
+```bash
+# Run update script
+./scripts/update.sh
+```
+
+### Source Installation
+
+```bash
+cd ~/.topviewbot  # or your installation directory
+git pull
+cd opencode && bun install && cd ..
+cd packages/topviewbot && bun install && cd ../..
+cd web && bun install && bun run build && cd ..
+```
+
+## FAQ
+
+### Port in use
+
+Use `--port` to specify another port:
+
+```bash
+topviewbot --port 8080
+```
+
+### Command not found
+
+If `topviewbot` command not found after script installation:
+
+```bash
+source ~/.bashrc  # or source ~/.zshrc
+```
+
+Or restart your terminal.
+
+### Run in background
+
+```bash
+nohup topviewbot --no-browser > topviewbot.log 2>&1 &
+```
+
+Or use systemd service (see [INSTALL.md](./INSTALL.md)).
+
+## Development
+
+```bash
+# Start development mode
+bun run dev
+
+# Start web dev server
+bun run web
+
+# Build web frontend
+bun run build:web
+```
+
+## Contributing
+
+Welcome to contribute to TopViewbot!
+
+- Submit Issues for bugs or suggestions
+- Submit Pull Requests to contribute code
+- Share usage experiences and best practices
+- Help improve documentation and translations
+
+
+## License
+
+[MIT](./LICENSE)

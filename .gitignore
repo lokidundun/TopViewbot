@@ -1,0 +1,30 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+.DS_Store
+bun.lock
+backup/
+.claude/
+*.png
+nul
+docx/
+.vscode/
+.github/prompts/
+
+# TopViewbot
+.topviewbot/
+natapp
+natapp.exe
+*.natapp
+
+# Build artifacts
+build/
+runtime/
+web/tsconfig.tsbuildinfo
+packages/topviewbot/config.json
+CLAUDE.md
+AGENTS.md
+config.json
+topviewbot.config.jsonc

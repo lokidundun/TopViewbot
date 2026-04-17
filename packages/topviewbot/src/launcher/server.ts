@@ -1,0 +1,292 @@
+import { resolve, dirname, basename } from 'path'
+import { writeFile, mkdir } from 'fs/promises'
+import { tmpdir } from 'os'
+import type { ServerConfig, AuthConfig, TopViewbotConfig, CustomProvider } from '../config/schema'
+import { getInstallDir, getGlobalSkillsDir, getAuthPath, getGlobalConfigDir, getMcpAuthPath, getProjectEnvDir } from '../config/loader'
+import { getGlobalPreferencesPath } from '../preferences'
+// 静态导入 OpenCode 服务器（编译时打包）
+import { Server as OpencodeServer } from '../../../../opencode/packages/opencode/src/server/server'
+import { BridgeServer } from '../../../browser-mcp-server/src/bridge/server'
+import { setBridgeServer } from '../../../../opencode/packages/opencode/src/browser/bridge'
+
+/**
+ * 判断是否是发行版模式
+ */
+function isReleaseMode(): boolean {
+  const dirName = basename(dirname(process.execPath))
+  return dirName.startsWith('topviewbot-')
+}
+
+/**
+ * 获取内置 skills 目录路径
+ * - 发行版模式：installDir/skills
+ * - 开发模式：installDir/packages/topviewbot/skills
+ */
+function getBuiltinSkillsDir(): string {
+  const installDir = getInstallDir()
+  return resolve(installDir, isReleaseMode() ? 'skills' : 'packages/topviewbot/skills')
+}
+
+/**
+ * 获取 web 资源目录路径
+ * - 发行版模式：installDir/web/dist
+ * - 开发模式：installDir/web/dist
+ */
+function getWebDistDir(): string {
+  const installDir = getInstallDir()
+  return resolve(installDir, 'web/dist')
+}
+
+export interface ServerInstance {
+  url: string
+  hostname: string
+  port: number
+  stop: () => Promise<void>
+}
+
+export interface StartServerOptions {
+  server: ServerConfig
+  auth: AuthConfig
+  configPath: string
+  fullConfig: TopViewbotConfig
+}
+
+function generateBrowserInstanceId(): string {
+  return `browser_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
+}
+
+function getBrowserServerOrigin(hostname: string, port: number): string {
+  const url = new URL('http://127.0.0.1')
+  const normalizedHostname = !hostname || hostname === '0.0.0.0'
+    ? '127.0.0.1'
+    : hostname === '::'
+      ? '::1'
+      : hostname
+  url.hostname = normalizedHostname
+  url.port = String(port)
+  return url.toString().replace(/\/$/, '')
+}
+
+/**
+ * TopViewbot 特有的配置字段（需要从 opencode 配置中过滤掉）
+ */
+const TOPVIEWBOT_ONLY_FIELDS = ['server', 'auth', 'tunnel', 'isolation', 'skills', 'sandbox', 'browser', 'feishu', 'customProviders']
+
+function protocolToNpm(protocol: CustomProvider['protocol']): string {
+  return protocol === 'anthropic' ? '@ai-sdk/anthropic' : '@ai-sdk/openai-compatible'
+}
+
+function mapCustomProvidersToOpencode(customProviders: TopViewbotConfig['customProviders']) {
+  const mapped: Record<string, any> = {}
+  for (const [providerId, provider] of Object.entries(customProviders || {})) {
+    mapped[providerId] = {
+      name: provider.name,
+      npm: protocolToNpm(provider.protocol),
+      api: provider.baseURL,
+      options: {
+        baseURL: provider.baseURL,
+        ...(provider.options || {}),
+      },
+      models: Object.fromEntries(
+        provider.models.map((model) => [
+          model.id,
+          {
+            id: model.id,
+            name: model.name || model.id,
+            provider: {
+              npm: protocolToNpm(provider.protocol),
+            },
+          },
+        ]),
+      ),
+    }
+  }
+  return mapped
+}
+
+/**
+ * 生成 opencode 兼容的配置文件
+ * 过滤掉 topviewbot 特有的字段
+ */
+async function generateOpencodeConfig(config: TopViewbotConfig): Promise<string> {
+  const opencodeConfig: Record<string, any> = {}
+  const customProviders = mapCustomProvidersToOpencode(config.customProviders || {})
+
+  for (const [key, value] of Object.entries(config)) {
+    if (!TOPVIEWBOT_ONLY_FIELDS.includes(key)) {
+      // 特殊处理 server 字段：只保留 opencode 认识的字段
+      if (key === 'server') {
+        const { openBrowser, ...rest } = value as any
+        if (Object.keys(rest).length > 0) {
+          opencodeConfig[key] = rest
+        }
+      }
+      // 特殊处理 mcp 字段：过滤掉 topviewbot 特有的继承控制字段
+      else if (key === 'mcp' && typeof value === 'object' && value !== null) {
+        const { inheritOpencode, inheritClaudeCode, ...mcpServers } = value as any
+        if (Object.keys(mcpServers).length > 0) {
+          opencodeConfig[key] = mcpServers
+        }
+      }
+      // 特殊处理 provider 字段：过滤掉 topviewbot 特有的继承控制字段
+      else if (key === 'provider' && typeof value === 'object' && value !== null) {
+        const { inheritOpencode, ...providers } = value as any
+        const sanitizedProviders = Object.fromEntries(
+          Object.entries(providers).map(([providerId, providerConfig]) => {
+            if (!providerConfig || typeof providerConfig !== 'object') {
+              return [providerId, providerConfig]
+            }
+
+            const { inheritOpencode: _ignored, ...rest } = providerConfig as Record<string, any>
+            return [providerId, rest]
+          }),
+        )
+
+        opencodeConfig[key] = { ...sanitizedProviders, ...customProviders }
+      }
+      else {
+        opencodeConfig[key] = value
+      }
+    }
+  }
+
+  if (!opencodeConfig.provider && Object.keys(customProviders).length > 0) {
+    opencodeConfig.provider = customProviders
+  }
+
+  // 写入临时文件（设置安全权限，仅当前用户可读写）
+  const tempDir = resolve(tmpdir(), 'topviewbot')
+  await mkdir(tempDir, { recursive: true, mode: 0o700 })
+  const tempConfigPath = resolve(tempDir, 'opencode.config.json')
+  await writeFile(tempConfigPath, JSON.stringify(opencodeConfig, null, 2), { mode: 0o600 })
+
+  return tempConfigPath
+}
+
+/**
+ * 启动 OpenCode 服务器
+ */
+export async function startServer(options: StartServerOptions): Promise<ServerInstance> {
+  const { server, auth, fullConfig } = options
+  const installDir = getInstallDir()
+
+  // 生成 opencode 兼容的配置文件（过滤掉 topviewbot 特有字段）
+  const opencodeConfigPath = await generateOpencodeConfig(fullConfig)
+
+  // 设置环境变量
+  process.env.OPENCODE_CONFIG = opencodeConfigPath
+
+  // 配置隔离：禁用全局或项目配置
+  const isolation = fullConfig.isolation || {}
+  if (isolation.disableGlobalConfig) {
+    process.env.OPENCODE_DISABLE_GLOBAL_CONFIG = 'true'
+  }
+  if (isolation.disableProjectConfig) {
+    process.env.OPENCODE_DISABLE_PROJECT_CONFIG = 'true'
+  }
+  // 如果不继承 opencode 配置，禁用 opencode 的全局和项目配置
+  if (isolation.inheritOpencode === false) {
+    process.env.OPENCODE_DISABLE_GLOBAL_CONFIG = 'true'
+    process.env.OPENCODE_DISABLE_PROJECT_CONFIG = 'true'
+  }
+
+  // 如果启用了认证，设置密码
+  if (auth.enabled && auth.password) {
+    process.env.OPENCODE_SERVER_PASSWORD = auth.password
+    process.env.OPENCODE_SERVER_USERNAME = 'topviewbot'
+  }
+
+  // Skills 配置：设置 TopViewbot skills 目录
+  process.env.TOPVIEWBOT_SKILLS_DIR = getGlobalSkillsDir()
+  // 设置内置 skills 目录（包含 /remember 等内置技能）
+  process.env.TOPVIEWBOT_BUILTIN_SKILLS_DIR = getBuiltinSkillsDir()
+  const skills = fullConfig.skills || {}
+  if (skills.inheritClaudeCode === false) {
+    process.env.OPENCODE_DISABLE_CLAUDE_CODE_SKILLS = 'true'
+  }
+  if (skills.inheritOpencode === false) {
+    process.env.OPENCODE_DISABLE_OPENCODE_SKILLS = 'true'
+  }
+
+  // MCP 配置：继承控制
+  const mcpConfig = fullConfig.mcp as any || {}
+  if (mcpConfig.inheritOpencode === false) {
+    process.env.OPENCODE_DISABLE_OPENCODE_MCP = 'true'
+  }
+  if (mcpConfig.inheritClaudeCode === false) {
+    process.env.OPENCODE_DISABLE_CLAUDE_CODE_MCP = 'true'
+  }
+
+  // 设置配置文件路径，供 MCP 热更新使用
+  process.env.TOPVIEWBOT_CONFIG_PATH = options.configPath
+
+  // Provider 认证配置：继承控制
+
+  // 设置 TopViewbot 独立的认证存储路径
+  await mkdir(getGlobalConfigDir(), { recursive: true })
+  process.env.TOPVIEWBOT_AUTH_PATH = getAuthPath()
+  process.env.TOPVIEWBOT_MCP_AUTH_PATH = getMcpAuthPath()
+  await mkdir(getProjectEnvDir(), { recursive: true })
+  process.env.TOPVIEWBOT_PROJECT_ENV_DIR = getProjectEnvDir()
+
+  // 设置偏好模块路径标志（仅用于检测 TopViewbot 环境）
+  process.env.TOPVIEWBOT_PREFERENCES_MODULE = 'topviewbot'
+
+  // 设置偏好文件路径（由 instruction.ts 定时读取）
+  process.env.TOPVIEWBOT_PREFERENCES_PATH = getGlobalPreferencesPath()
+
+  // 设置项目目录（用于 opencode 的默认工作目录）
+  // 注意：TOPVIEWBOT_PROJECT_DIR 应该在 index.ts 入口处就设置好了
+  // 这里只是一个后备方案
+  if (!process.env.TOPVIEWBOT_PROJECT_DIR) {
+    process.env.TOPVIEWBOT_PROJECT_DIR = process.cwd()
+  }
+
+  // 设置 web 资源目录（供 OpenCode server 提供静态文件）
+  process.env.TOPVIEWBOT_WEB_DIR = getWebDistDir()
+
+  // 设置捆绑的 ripgrep 路径（发行版中 bin/rg）
+  const rgPath = resolve(installDir, 'bin', process.platform === 'win32' ? 'rg.exe' : 'rg')
+  process.env.OPENCODE_RIPGREP_PATH = rgPath
+
+  // 初始化浏览器 Bridge（如果启用）
+  // 必须在 OpencodeServer.listen() 之前完成，因为路由在 listen 时挂载
+  let bridgeServer: BridgeServer | undefined
+  const browserConfig = (fullConfig as any).browser
+  if (browserConfig?.enabled) {
+    try {
+      const serverOrigin = getBrowserServerOrigin(server.hostname, server.port)
+      bridgeServer = new BridgeServer({
+        cdpPort: browserConfig.cdpPort ?? 9222,
+        autoLaunch: browserConfig.autoLaunch ?? true,
+        headless: browserConfig.headless ?? false,
+        serverOrigin,
+        instanceId: generateBrowserInstanceId(),
+      })
+      await bridgeServer.start()
+      setBridgeServer(bridgeServer)
+      console.log(`[TopViewbot] Browser control enabled at ${serverOrigin}/browser/`)
+    } catch (error: any) {
+      console.warn(`[TopViewbot] Failed to initialize browser bridge: ${error.message}`)
+    }
+  }
+
+  // 使用静态导入的 OpenCode 服务器启动
+  const serverInstance = await OpencodeServer.listen({
+    port: server.port,
+    hostname: server.hostname,
+    cors: [],
+  })
+
+  return {
+    url: serverInstance.url.toString(),
+    hostname: serverInstance.hostname ?? server.hostname,
+    port: serverInstance.port ?? server.port,
+    stop: async () => {
+      if (bridgeServer) {
+        try { await bridgeServer.stop() } catch { /* ignore */ }
+      }
+      (serverInstance as any).server?.stop?.()
+    },
+  }
+}

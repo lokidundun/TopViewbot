@@ -1,0 +1,493 @@
+# TopViewbot
+
+[English](./README.md)
+
+轻量级多功能个人 AI 助手，提供 Web 界面和隧道支持，可远程访问。
+
+实现与Claude、ChatGPT网页端同等的便捷体验及Claude Desktop同等的强大能力
+
+支持编程开发、文件管理、信息检索、内容创作等多种任务，通过自然语言交互完成复杂操作。
+
+**无需安装任何依赖** - 下载解压即可运行，无需运行时或包管理器。
+
+## 截图
+
+<!-- 在这里添加截图，例如： -->
+<!-- ![聊天界面](./docs/images/chat.png) -->
+<!-- ![设置页面](./docs/images/settings.png) -->
+
+## 功能特点
+
+### 核心能力
+
+- **编程开发** - 代码编写、调试、重构、代码审查，支持多种编程语言和框架
+- **文件管理** - 读取、创建、编辑、整理文件，批量重命名，目录结构管理
+- **文件预览** - 在 Web 界面预览图片、代码、Markdown、HTML、Office 文档
+- **文件上传** - 通过 Web 界面直接上传文件供 AI 处理
+- **命令执行** - 运行系统命令，脚本编写，环境配置，自动化任务
+- **信息检索** - 网页搜索，资料整理，数据分析，内容提取与总结
+- **内容创作** - 文档撰写，报告生成，邮件起草，翻译润色，文案优化
+- **日常办公** - 会议纪要整理，日程规划，数据表格处理，格式转换
+- **任务管理** - 待办事项跟踪，工作拆解，进度管理，提醒备忘
+- **问题解答** - 技术咨询，方案建议，故障排查，学习辅导
+
+### 产品特性
+
+- **Web 界面** - 现代化的聊天界面，支持 Markdown 渲染、代码高亮、agent控制台监控
+- **多模型支持** - Anthropic Claude、OpenAI、Google Gemini、OpenRouter 等
+- **会话工作目录** - 每个会话可设置独立的工作目录，内置目录浏览与选择
+- **用户偏好** - 记录个人偏好，AI 会在所有会话中遵循你的习惯
+- **终端历史** - 支持终端输出的滚动回溯查看
+- **隧道支持** - 内置 ngrok 和 NATAPP 支持，可从公网访问
+- **浏览器控制** - 内置浏览器自动化功能，通过 Chrome / Edge 扩展实现
+- **密码保护** - 可选的 Web 访问密码保护（用户名固定为 `topviewbot`）
+- **并行会话** - 支持同时运行至多10个 AI 会话
+- **热更新** - Skills 和 MCP 配置修改后自动生效，无需重启
+- **开箱即用** - 下载即可运行，内置 Bun 运行时
+
+### 浏览器控制
+
+TopViewbot 内置浏览器自动化功能，支持两种模式：通过浏览器扩展控制用户自己的浏览器（支持 Chrome、Edge 及其他 Chromium 内核浏览器），或启动 AI 独立的浏览器进程。AI 可以导航页面、填写表单、截图、点击元素等。
+
+**安装步骤：**
+
+1. 打开浏览器扩展管理页面：
+   - Chrome：`chrome://extensions/`
+   - Edge：`edge://extensions/`
+2. 启用右上角的**开发者模式**
+3. 点击**加载已解压的扩展程序**，选择 TopViewbot 安装目录中的 `browser-extension` 文件夹
+4. 在配置文件中启用浏览器控制：
+
+```jsonc
+{
+  "browser": {
+    "enabled": true
+  }
+}
+```
+
+> **注意**：浏览器扩展使用敏感权限（debugger、scripting、all_urls）来实现完整的浏览器自动化。请仅在可信环境中使用。
+
+### 内置 Skills
+
+TopViewbot 内置了多个实用技能，通过 `/技能名` 调用：
+
+| 技能 | 说明 |
+|------|------|
+| `/remember` | 记录用户偏好，AI 会在所有会话中遵循 |
+| `/pdf` | PDF 处理：提取文本、合并拆分、表单填写 |
+| `/docx` | Word 文档创建、编辑、修订追踪 |
+| `/pptx` | PowerPoint 演示文稿创建和编辑 |
+| `/mcp-builder` | 创建 MCP 服务器的开发指南 |
+| `/skill-creator` | 创建自定义 Skills 的开发指南 |
+
+你也可以在 `~/.config/topviewbot/skills/` 添加自定义 Skills。
+
+> **提示**：你可以直接在对话中告诉 AI 需要安装的 MCP 服务器或自定义 Skills，只需描述需求或粘贴相关网址，AI 会自动完成安装配置。
+
+### 配置兼容性
+
+TopViewbot 支持集成以下配置：
+
+| 配置类型 | OpenCode | Claude Code | 说明 |
+|---------|----------|-------------|------|
+| MCP 服务器 | ✅ | ✅ | 可继承 OpenCode 和 Claude Code 的 MCP 配置 |
+| Skills 技能 | ✅ | ✅ | 可继承 OpenCode 和 Claude Code 的自定义技能 |
+| 服务商认证 | ✅ | ❌ | 可继承 OpenCode 的 API Key 和 OAuth 认证 |
+
+可通过配置文件控制是否继承这些配置：
+
+```jsonc
+{
+  "isolation": {
+    "inheritOpencode": true       // 是否继承 OpenCode 的全局/项目配置
+  },
+  "skills": {
+    "inheritOpencode": true,      // 是否继承 OpenCode Skills
+    "inheritClaudeCode": true     // 是否继承 Claude Code Skills
+  },
+  "mcp": {
+    "inheritOpencode": true,      // 是否继承 OpenCode MCP 配置
+    "inheritClaudeCode": true     // 是否继承 Claude Code MCP 配置
+  },
+  "provider": {
+    "inheritOpencode": true       // 是否继承 OpenCode Provider 认证
+  }
+}
+```
+
+### 自定义 LLM 来源（OpenAI / Anthropic 协议）
+
+你可以在设置页的“认证管理 → 自定义来源”中直接添加，也可以手动编辑 `topviewbot.config.jsonc`：
+
+```jsonc
+{
+  "customProviders": {
+    "my-openai": {
+      "name": "My OpenAI",
+      "protocol": "openai",
+      "baseURL": "https://example.com/v1",
+      "models": [
+        { "id": "gpt-4o-mini", "name": "GPT-4o mini" }
+      ]
+    },
+    "my-anthropic": {
+      "name": "My Anthropic",
+      "protocol": "anthropic",
+      "baseURL": "https://anthropic-proxy.example.com",
+      "models": [
+        { "id": "claude-3-5-sonnet-latest" }
+      ]
+    }
+  }
+}
+```
+
+说明：
+- `customProviders` 仅定义来源结构（协议、地址、模型）
+- API Key 仍通过认证页保存到本地 `auth.json`
+- `protocol` 目前仅支持 `openai` 与 `anthropic`
+
+## 安装
+
+### 方式一：下载 Release（推荐）
+
+从 [Releases](https://github.com/contrueCT/topviewbot/releases) 下载对应平台的压缩包：
+
+| 平台 | 架构 | 文件名 |
+|------|------|--------|
+| Linux | x64 | `topviewbot-linux-x64-vX.X.X.tar.gz` |
+| Linux | ARM64 | `topviewbot-linux-arm64-vX.X.X.tar.gz` |
+| macOS | Apple Silicon | `topviewbot-darwin-arm64-vX.X.X.tar.gz` |
+| Windows | x64 | `topviewbot-windows-x64-vX.X.X.zip` |
+
+**macOS（推荐使用 Homebrew）：**
+
+```bash
+brew install contrueCT/topviewbot/topviewbot
+```
+
+更新使用 `brew upgrade topviewbot`，卸载使用 `brew uninstall topviewbot`。
+
+**Linux：**
+
+```bash
+# 下载并解压（以 Linux x64 为例）
+curl -fsSL https://github.com/contrueCT/topviewbot/releases/latest/download/topviewbot-linux-x64.tar.gz | tar -xz
+cd topviewbot-linux-x64
+
+# 运行
+./topviewbot
+```
+
+**Windows：**
+
+1. 下载 `topviewbot-windows-x64-vX.X.X.zip`
+2. 解压到任意目录
+3. 双击 `topviewbot.bat` 或在命令行运行
+
+### 方式二：一键安装脚本（Linux / macOS）
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/contrueCT/topviewbot/main/install.sh | bash
+```
+
+安装完成后，可以在任意目录运行 `topviewbot` 命令。
+
+### 方式三：从源码安装
+
+需要先安装 [Bun](https://bun.sh)。
+
+```bash
+# 克隆仓库
+git clone https://github.com/contrueCT/topviewbot.git
+cd topviewbot
+
+# 安装依赖
+cd opencode && bun install && cd ..
+cd packages/topviewbot && bun install && cd ../..
+cd web && bun install && cd ..
+
+# 构建 Web 前端
+cd web && bun run build && cd ..
+
+# 运行
+bun run topviewbot
+```
+
+## 使用
+
+### 首次运行
+
+首次运行时，会提示是否运行配置向导：
+
+```
+Welcome to TopViewbot! Would you like to run the setup wizard?
+```
+
+配置向导会引导你设置：
+- 服务端口（默认 4096）
+- 密码保护（可选）
+- 隧道配置（可选，用于公网访问）
+- AI Provider API Key
+
+你也可以跳过向导，之后运行 `topviewbot setup` 单独配置。
+
+### 命令行
+
+```bash
+# 启动服务（默认命令）
+topviewbot
+
+# 指定端口
+topviewbot --port 8080
+topviewbot -p 8080
+
+# 启用隧道
+topviewbot --tunnel
+topviewbot -t
+
+# 不自动打开浏览器
+topviewbot --no-browser
+
+# 运行配置向导
+topviewbot setup
+
+# 查看配置
+topviewbot config show
+
+# 设置配置项
+topviewbot config set server.port 8080
+
+# 编辑配置文件
+topviewbot config edit
+
+# 查看帮助
+topviewbot --help
+```
+
+### Web 界面
+
+启动后，在浏览器打开 `http://127.0.0.1:4096`（或配置的端口）。
+
+功能：
+- 创建多个会话，每个会话可设置独立工作目录
+- 浏览和选择会话工作目录
+- 上传文件供 AI 处理
+- 切换不同的 AI 模型
+- 查看和管理文件
+- 实时查看 AI 思考过程
+- 中止正在运行的任务
+
+### 用户偏好
+
+TopViewbot 可以记录你的个人偏好，AI 会在所有会话中自动遵循这些偏好。
+
+#### 设置偏好
+
+**方式一：Web 界面**
+
+点击设置面板中的「偏好」标签，可以添加、编辑、删除偏好。
+
+**方式二：对话中使用 /remember 命令**
+
+在对话中直接告诉 AI 你的偏好：
+
+```
+/remember 回复时使用中文
+/remember 代码注释用英文
+/remember 不要使用 emoji
+```
+
+#### 偏好示例
+
+- `回复时使用中文` - AI 会用中文回复
+- `代码风格使用 4 空格缩进` - 生成的代码会使用 4 空格缩进
+- `解释代码时要详细` - AI 会给出更详细的代码解释
+- `commit message 用英文` - Git 提交信息会用英文
+
+偏好会自动注入到每次对话的提示词中，无需重复说明。
+
+## 配置
+
+配置文件位置：
+- **项目配置**：`topviewbot.config.jsonc`（安装目录）
+- **全局配置**：`~/.config/topviewbot/config.jsonc`（Linux/macOS）或 `%APPDATA%\topviewbot\config.jsonc`（Windows）
+
+### 配置示例
+
+```jsonc
+{
+  // 服务器配置
+  "server": {
+    "port": 4096,
+    "hostname": "127.0.0.1",
+    "openBrowser": true
+  },
+
+  // 密码保护（用户名固定为 "topviewbot"）
+  "auth": {
+    "enabled": true,
+    "password": "your-password"
+  },
+
+  // 隧道配置
+  "tunnel": {
+    "enabled": true,
+    "provider": "ngrok",  // 或 "natapp"
+    "ngrok": {
+      "authToken": "your-ngrok-token"
+    }
+  },
+
+  // AI Provider 配置
+  "provider": {
+    "anthropic": {
+      "options": {
+        "apiKey": "sk-ant-xxxxx"
+      }
+    }
+  },
+
+  // 默认模型
+  "model": "anthropic/claude-sonnet-4-20250514"
+}
+```
+
+### 环境变量
+
+配置文件支持环境变量替换：
+
+```jsonc
+{
+  "provider": {
+    "anthropic": {
+      "options": {
+        "apiKey": "{env:ANTHROPIC_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+### 隧道配置
+
+> **隧道安全警告**
+>
+> 启用隧道会将你的 TopViewbot 实例暴露到公网，请务必注意以下风险：
+> - **强烈建议启用密码保护**：未设置密码时，任何人都可以通过隧道 URL 访问并控制你的 AI 助手
+> - **隧道 URL 会被记录**：ngrok/NATAPP 等服务商会记录你的隧道访问日志
+> - **不要分享隧道 URL**：除非你信任对方，否则不要将隧道地址分享给他人
+> - **及时关闭不使用的隧道**：长时间暴露在公网增加被攻击的风险
+> - **避免在隧道模式下处理敏感数据**：公网传输存在被拦截的可能
+
+#### ngrok（国际）
+
+1. 注册 [ngrok](https://ngrok.com) 账号
+2. 获取 [authtoken](https://dashboard.ngrok.com/authtokens)
+3. 配置：
+
+```jsonc
+{
+  "tunnel": {
+    "enabled": true,
+    "provider": "ngrok",
+    "ngrok": {
+      "authToken": "your-ngrok-token"
+    }
+  }
+}
+```
+
+#### NATAPP（国内）
+
+1. 注册 [NATAPP](https://natapp.cn) 账号
+2. 创建隧道，获取 authtoken
+3. 下载 NATAPP 客户端并添加到 PATH
+4. 配置：
+
+```jsonc
+{
+  "tunnel": {
+    "enabled": true,
+    "provider": "natapp",
+    "natapp": {
+      "authToken": "your-natapp-token"
+    }
+  }
+}
+```
+
+## 更新
+
+### Release 安装方式
+
+```bash
+# 运行更新脚本
+./scripts/update.sh
+```
+
+### 源码安装方式
+
+```bash
+cd ~/.topviewbot  # 或你的安装目录
+git pull
+cd opencode && bun install && cd ..
+cd packages/topviewbot && bun install && cd ../..
+cd web && bun install && bun run build && cd ..
+```
+
+## 常见问题
+
+### 端口被占用
+
+使用 `--port` 参数指定其他端口：
+
+```bash
+topviewbot --port 8080
+```
+
+### 命令找不到
+
+如果使用脚本安装后 `topviewbot` 命令找不到，运行：
+
+```bash
+source ~/.bashrc  # 或 source ~/.zshrc
+```
+
+或重新打开终端。
+
+### 后台运行
+
+```bash
+nohup topviewbot --no-browser > topviewbot.log 2>&1 &
+```
+
+或使用 systemd 服务（参见 [INSTALL.md](./INSTALL.md)）。
+
+## 开发
+
+```bash
+# 启动开发模式
+bun run dev
+
+# 启动 Web 开发服务器
+bun run web
+
+# 构建 Web 前端
+bun run build:web
+```
+
+## 参与贡献
+
+欢迎参与 TopViewbot 的开发，一起丰富国内 Agent 生态！
+
+- 提交 Issue 反馈问题或建议
+- 提交 Pull Request 贡献代码
+- 分享使用经验和最佳实践
+- 帮助完善文档和翻译
+
+
+## License
+
+[MIT](./LICENSE)
