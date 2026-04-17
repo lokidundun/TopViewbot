@@ -45,6 +45,8 @@ import { GlobalRoutes } from "./routes/global"
 import { PreferencesRoutes } from "./routes/preferences"
 import { AgentTerminalRoutes } from "./routes/agent-terminal"
 import { BrowserRoutes } from "./routes/browser"
+import { AuthRoutes } from "./routes/auth"
+import { authMiddleware } from "./middleware/auth"
 import { MDNS } from "./mdns"
 
 // @ts-ignore This global is needed to prevent ai-sdk from logging warnings to stdout https://github.com/vercel/ai/blob/2dc67e0ef538307f21368db32d5a12345d98831b/packages/ai/src/logger/log-warnings.ts#L85
@@ -174,9 +176,13 @@ export namespace Server {
 
               return
             },
+            allowHeaders: ["Authorization", "Content-Type", "x-opencode-directory"],
+            allowMethods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
           }),
         )
         .route("/global", GlobalRoutes())
+        .route("/auth", AuthRoutes())
+        .use(authMiddleware)
         .use(async (c, next) => {
           // TopViewbot: 优先使用 TOPVIEWBOT_PROJECT_DIR 作为默认目录
           let directory = c.req.query("directory") || c.req.header("x-opencode-directory") || process.env.TOPVIEWBOT_PROJECT_DIR || process.cwd()

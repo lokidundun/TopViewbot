@@ -2,6 +2,7 @@ import path from "path"
 import fs from "fs/promises"
 import z from "zod"
 import { Global } from "../global"
+import { getOrCreateMasterKey, maybeEncrypt, maybeDecrypt } from "../auth/crypto"
 
 export namespace McpAuth {
   const OAUTH_EXPIRY_SAFETY_WINDOW_SECONDS = 300
@@ -49,15 +50,80 @@ export namespace McpAuth {
     return process.env.TOPVIEWBOT_MCP_AUTH_PATH || legacyFilepath
   }
 
+  function decryptMcpEntry(entry: Record<string, unknown>, key: Buffer): Record<string, unknown> {
+    const result = JSON.parse(JSON.stringify(entry)) as Record<string, unknown>
+
+    const tokens = result.tokens as Record<string, unknown> | undefined
+    if (tokens) {
+      if ("accessToken" in tokens) tokens.accessToken = maybeDecrypt(tokens.accessToken, key)
+      if ("refreshToken" in tokens) tokens.refreshToken = maybeDecrypt(tokens.refreshToken, key)
+    }
+
+    const clientInfo = result.clientInfo as Record<string, unknown> | undefined
+    if (clientInfo && "clientSecret" in clientInfo) {
+      clientInfo.clientSecret = maybeDecrypt(clientInfo.clientSecret, key)
+    }
+
+    if ("codeVerifier" in result) {
+      result.codeVerifier = maybeDecrypt(result.codeVerifier, key)
+    }
+
+    return result
+  }
+
+  function encryptMcpEntry(entry: Record<string, unknown>, key: Buffer): Record<string, unknown> {
+    const result = JSON.parse(JSON.stringify(entry)) as Record<string, unknown>
+
+    const tokens = result.tokens as Record<string, unknown> | undefined
+    if (tokens) {
+      if ("accessToken" in tokens) tokens.accessToken = maybeEncrypt(tokens.accessToken, key)
+      if ("refreshToken" in tokens) tokens.refreshToken = maybeEncrypt(tokens.refreshToken, key)
+    }
+
+    const clientInfo = result.clientInfo as Record<string, unknown> | undefined
+    if (clientInfo && "clientSecret" in clientInfo) {
+      clientInfo.clientSecret = maybeEncrypt(clientInfo.clientSecret, key)
+    }
+
+    if ("codeVerifier" in result) {
+      result.codeVerifier = maybeEncrypt(result.codeVerifier, key)
+    }
+
+    return result
+  }
+
   async function loadFile(filePath: string): Promise<Record<string, Entry>> {
-    const data = await Bun.file(filePath).json().catch(() => ({}))
-    return z.record(z.string(), Entry).catch({}).parse(data)
+    const raw = await Bun.file(filePath).json().catch(() => ({}))
+
+    const masterKey = await getOrCreateMasterKey(filePath).catch(() => undefined)
+    if (masterKey && typeof raw === "object" && raw !== null) {
+      for (const [k, entry] of Object.entries(raw)) {
+        if (typeof entry === "object" && entry !== null) {
+          ;(raw as Record<string, unknown>)[k] = decryptMcpEntry(
+            entry as Record<string, unknown>,
+            masterKey,
+          )
+        }
+      }
+    }
+
+    return z.record(z.string(), Entry).catch({}).parse(raw)
   }
 
   async function writeFileAtomically(filePath: string, data: Record<string, Entry>): Promise<void> {
+    const masterKey = await getOrCreateMasterKey(filePath).catch(() => undefined)
+
+    let payload: Record<string, unknown> = data
+    if (masterKey) {
+      payload = {}
+      for (const [k, entry] of Object.entries(data)) {
+        payload[k] = encryptMcpEntry(entry as unknown as Record<string, unknown>, masterKey)
+      }
+    }
+
     const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`
     await fs.mkdir(path.dirname(filePath), { recursive: true })
-    await Bun.write(tempPath, JSON.stringify(data, null, 2))
+    await Bun.write(tempPath, JSON.stringify(payload, null, 2))
     await fs.chmod(tempPath, 0o600)
     await fs.rename(tempPath, filePath)
   }

@@ -8,7 +8,7 @@ interface StartArgs {
   port?: number
   hostname?: string
   tunnel?: boolean
-  'no-browser'?: boolean
+  browser?: boolean
 }
 
 /**
@@ -40,7 +40,7 @@ export async function startHandler(args: ArgumentsCamelCase<StartArgs>): Promise
       port: args.port,
       hostname: args.hostname,
       tunnel: args.tunnel,
-      noBrowser: args['no-browser'],
+      noBrowser: args.browser === false,
     })
 
     spinner.stop('TopViewbot is running!')
@@ -95,9 +95,10 @@ export const StartCommand = {
         type: 'boolean',
         describe: 'Enable tunnel (ngrok/natapp)',
       })
-      .option('no-browser', {
+      .option('browser', {
         type: 'boolean',
-        describe: "Don't open browser automatically",
+        default: true,
+        describe: 'Open browser automatically',
       })
   },
   handler: startHandler,

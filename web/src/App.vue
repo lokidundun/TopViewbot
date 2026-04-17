@@ -23,8 +23,12 @@ import McpProjectPanel from './components/McpProjectPanel.vue'
 import RightPanel from './components/RightPanel.vue'
 import { useAgentTerminal } from './composables/useAgentTerminal'
 import { useFilePreview } from './composables/useFilePreview'
+import { useAuth } from './composables/useAuth'
+import LoginPage from './components/LoginPage.vue'
 
 import { MAX_PARALLEL_AGENTS } from './composables/useParallelSessions'
+
+const { isLoggedIn, verifyToken, authChecking } = useAuth()
 
 const {
   sessions,
@@ -241,6 +245,10 @@ function subscribeGlobalEvents() {
 }
 
 onMounted(async () => {
+  // 先验证登录态
+  await verifyToken()
+  if (!isLoggedIn.value) return
+
   // 先注册事件处理器，确保在 SSE 连接建立时能接收到 server.connected 事件
   unregisterTerminalHandler = registerEventHandler(handleTerminalEvent)
   unregisterPreviewHandler = registerEventHandler(handlePreviewEvent)
@@ -559,7 +567,12 @@ function handlePromptSelect(prompt: string) {
 </script>
 
 <template>
-  <div class="app-layout">
+  <div v-if="authChecking" class="auth-loading">
+    <div class="loading-spinner"></div>
+    <span>验证中...</span>
+  </div>
+  <LoginPage v-else-if="!isLoggedIn" />
+  <div v-else class="app-layout">
     <!-- Sidebar -->
     <Sidebar
       :collapsed="sidebarCollapsed"
@@ -805,6 +818,17 @@ function handlePromptSelect(prompt: string) {
 
 <style scoped>
 /* Layout uses global styles from style.css */
+
+.auth-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: var(--space-md);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
 
 .panel-overlay {
   position: absolute;

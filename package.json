@@ -13,7 +13,7 @@
     "start": "bun run packages/topviewbot/src/index.ts",
     "serve": "bun run --cwd opencode/packages/opencode src/index.ts serve --port 4096",
     "web": "bun run --cwd web dev",
-    "topviewbot": "bun run packages/topviewbot/src/index.ts",
+    "topviewbot": "bun packages/topviewbot/src/index.ts",
     "rebuild": "bun run --cwd web build",
     "dev:test": "bun run rebuild && bun run topviewbot"
   }

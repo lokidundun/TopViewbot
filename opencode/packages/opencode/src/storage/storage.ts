@@ -3,11 +3,11 @@ import path from "path"
 import fs from "fs/promises"
 import { Global } from "../global"
 import { Filesystem } from "../util/filesystem"
-import { lazy } from "../util/lazy"
 import { Lock } from "../util/lock"
 import { $ } from "bun"
 import { NamedError } from "@opencode-ai/util/error"
 import z from "zod"
+import { UserContext } from "../auth/context"
 
 export namespace Storage {
   const log = Log.create({ service: "storage" })
@@ -148,25 +148,45 @@ export namespace Storage {
     },
   ]
 
-  const state = lazy(async () => {
-    const dir = path.join(Global.Path.data, "storage")
-    const migration = await Bun.file(path.join(dir, "migration"))
-      .json()
-      .then((x) => parseInt(x))
-      .catch(() => 0)
-    for (let index = migration; index < MIGRATIONS.length; index++) {
-      log.info("running migration", { index })
-      const migration = MIGRATIONS[index]
-      await migration(dir).catch(() => log.error("failed to run migration", { index }))
-      await Bun.write(path.join(dir, "migration"), (index + 1).toString())
+  let rootMigrationDone = false
+
+  function getUserId(): string | undefined {
+    try {
+      const user = UserContext.use()
+      return user.userId
+    } catch {
+      return undefined
     }
-    return {
-      dir,
+  }
+
+  async function getDir(): Promise<string> {
+    const userId = getUserId()
+    const dir = userId
+      ? path.join(Global.Path.data, "storage", "users", userId)
+      : path.join(Global.Path.data, "storage")
+
+    await fs.mkdir(dir, { recursive: true })
+
+    // Run migration only on root dir once per process
+    if (!userId && !rootMigrationDone) {
+      rootMigrationDone = true
+      const migration = await Bun.file(path.join(dir, "migration"))
+        .json()
+        .then((x) => parseInt(x))
+        .catch(() => 0)
+      for (let index = migration; index < MIGRATIONS.length; index++) {
+        log.info("running migration", { index })
+        const migration = MIGRATIONS[index]
+        await migration(dir).catch(() => log.error("failed to run migration", { index }))
+        await Bun.write(path.join(dir, "migration"), (index + 1).toString())
+      }
     }
-  })
+
+    return dir
+  }
 
   export async function remove(key: string[]) {
-    const dir = await state().then((x) => x.dir)
+    const dir = await getDir()
     const target = path.join(dir, ...key) + ".json"
     return withErrorHandling(async () => {
       await fs.unlink(target).catch(() => {})
@@ -174,7 +194,7 @@ export namespace Storage {
   }
 
   export async function read<T>(key: string[]) {
-    const dir = await state().then((x) => x.dir)
+    const dir = await getDir()
     const target = path.join(dir, ...key) + ".json"
     return withErrorHandling(async () => {
       using _ = await Lock.read(target)
@@ -193,7 +213,7 @@ export namespace Storage {
   }
 
   export async function update<T>(key: string[], fn: (draft: T) => void) {
-    const dir = await state().then((x) => x.dir)
+    const dir = await getDir()
     const target = path.join(dir, ...key) + ".json"
     return withErrorHandling(async () => {
       using _ = await Lock.write(target)
@@ -215,7 +235,7 @@ export namespace Storage {
   }
 
   export async function write<T>(key: string[], content: T) {
-    const dir = await state().then((x) => x.dir)
+    const dir = await getDir()
     const target = path.join(dir, ...key) + ".json"
     return withErrorHandling(async () => {
       using _ = await Lock.write(target)
@@ -236,7 +256,7 @@ export namespace Storage {
 
   const glob = new Bun.Glob("**/*")
   export async function list(prefix: string[]) {
-    const dir = await state().then((x) => x.dir)
+    const dir = await getDir()
     try {
       const result = await Array.fromAsync(
         glob.scan({

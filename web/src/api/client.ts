@@ -3,9 +3,14 @@ const BASE_URL = ''  // 使用相对路径，由 vite proxy 或同源处理
 // 默认请求超时时间 (30秒)
 const DEFAULT_TIMEOUT = 30000
 let activeDirectory = ''
+let authToken = ''
 
 export function setApiDirectory(directory?: string) {
   activeDirectory = (directory || '').trim()
+}
+
+export function setAuthToken(token: string) {
+  authToken = token
 }
 
 function applyDirectoryToUrl(url: string): string {
@@ -25,10 +30,12 @@ function applyDirectoryToUrl(url: string): string {
 }
 
 function applyDirectoryHeaders(options: RequestInit): RequestInit {
-  if (!activeDirectory) return options
   const headers = new Headers(options.headers || {})
-  if (!headers.has('x-opencode-directory')) {
+  if (activeDirectory && !headers.has('x-opencode-directory')) {
     headers.set('x-opencode-directory', activeDirectory)
+  }
+  if (authToken && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${authToken}`)
   }
   return {
     ...options,
@@ -38,6 +45,14 @@ function applyDirectoryHeaders(options: RequestInit): RequestInit {
 
 function fetchWithDirectory(url: string, options: RequestInit = {}) {
   return fetch(applyDirectoryToUrl(url), applyDirectoryHeaders(options))
+}
+
+/**
+ * Append a query parameter to a URL, handling existing query string correctly.
+ */
+function appendQueryParam(url: string, key: string, value: string): string {
+  const separator = url.includes('?') ? '&' : '?'
+  return `${url}${separator}${encodeURIComponent(key)}=${encodeURIComponent(value)}`
 }
 
 // 带超时的 fetch 封装
@@ -56,6 +71,12 @@ async function fetchWithTimeout(
       ...preparedOptions,
       signal: controller.signal
     })
+    // Handle auth expiration globally
+    if (response.status === 401 && authToken) {
+      localStorage.removeItem('topviewbot_token')
+      setAuthToken('')
+      window.location.reload()
+    }
     return response
   } finally {
     clearTimeout(timeoutId)
@@ -540,7 +561,7 @@ export const api = {
     const params = new URLSearchParams()
     if (path) params.set('path', path)
     if (directory) params.set('directory', directory)
-    const res = await fetch(`${BASE_URL}/file?${params}`)
+    const res = await fetchWithTimeout(`${BASE_URL}/file?${params}`)
     const data = await res.json()
     // API 直接返回数组
     return Array.isArray(data) ? data : (data.data || [])
@@ -550,7 +571,7 @@ export const api = {
   async getFileContent(path: string, directory?: string): Promise<FileContent> {
     const params = new URLSearchParams({ path })
     if (directory) params.set('directory', directory)
-    const res = await fetch(`${BASE_URL}/file/content?${params}`)
+    const res = await fetchWithTimeout(`${BASE_URL}/file/content?${params}`)
     if (!res.ok) {
       throw new Error(`Failed to get file content: ${res.status}`)
     }
@@ -561,7 +582,7 @@ export const api = {
   // 搜索文件
   async searchFiles(pattern: string): Promise<FileSearchResult[]> {
     const params = new URLSearchParams({ pattern })
-    const res = await fetch(`${BASE_URL}/find/file?${params}`)
+    const res = await fetchWithTimeout(`${BASE_URL}/find/file?${params}`)
     if (!res.ok) {
       throw new Error(`Failed to search files: ${res.status}`)
     }
@@ -599,7 +620,7 @@ export const api = {
     }>
   }> {
     const params = new URLSearchParams({ path })
-    const res = await fetch(`${BASE_URL}/browse?${params}`)
+    const res = await fetchWithTimeout(`${BASE_URL}/browse?${params}`)
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))
       throw new Error(data.error || `Failed to browse directory: ${res.status}`)
@@ -615,7 +636,9 @@ export const api = {
     const baseReconnectDelay = 1000 // 1秒
 
     function connect(): EventSource {
-      eventSource = new EventSource(applyDirectoryToUrl(`${BASE_URL}/event`))
+      let url = applyDirectoryToUrl(`${BASE_URL}/event`)
+      if (authToken) url = appendQueryParam(url, 'token', authToken)
+      eventSource = new EventSource(url)
 
       eventSource.onopen = () => {
         // 连接成功，重置重连计数
@@ -651,6 +674,11 @@ export const api = {
             }, delay)
           } else {
             console.error('EventSource max reconnect attempts reached')
+            // Likely auth expired - force re-login
+            if (authToken) {
+              localStorage.removeItem('topviewbot_token')
+              window.location.reload()
+            }
           }
         }
       }
@@ -669,7 +697,9 @@ export const api = {
     const baseReconnectDelay = 1000
 
     function connect(): EventSource {
-      eventSource = new EventSource(`${BASE_URL}/global/event`)
+      let url = `${BASE_URL}/global/event`
+      if (authToken) url = appendQueryParam(url, 'token', authToken)
+      eventSource = new EventSource(url)
 
       eventSource.onopen = () => {
         reconnectAttempts = 0
@@ -687,14 +717,20 @@ export const api = {
       }
 
       eventSource.onerror = () => {
-        if (eventSource.readyState === EventSource.CLOSED && reconnectAttempts < maxReconnectAttempts) {
-          reconnectAttempts++
-          const delay = baseReconnectDelay * Math.pow(2, reconnectAttempts - 1)
-          setTimeout(() => {
-            if (eventSource.readyState === EventSource.CLOSED) {
-              connect()
-            }
-          }, delay)
+        if (eventSource.readyState === EventSource.CLOSED) {
+          if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++
+            const delay = baseReconnectDelay * Math.pow(2, reconnectAttempts - 1)
+            setTimeout(() => {
+              if (eventSource.readyState === EventSource.CLOSED) {
+                connect()
+              }
+            }, delay)
+          } else if (authToken) {
+            // Likely auth expired - force re-login
+            localStorage.removeItem('topviewbot_token')
+            window.location.reload()
+          }
         }
       }
 
@@ -1122,7 +1158,7 @@ export const mcpApi = {
 export const skillApi = {
   // 获取所有可用技能
   async list(): Promise<Skill[]> {
-    const res = await fetch(`${BASE_URL}/skill`)
+    const res = await fetchWithTimeout(`${BASE_URL}/skill`)
     const data = await res.json()
     return Array.isArray(data) ? data : (data.data || [])
   }
@@ -1132,7 +1168,7 @@ export const providerApi = {
   // 获取所有提供者和模型
   // 后端返回 { all: Provider[], default: Record<string, string>, connected: string[] }
   async list(): Promise<{ providers: Provider[]; defaults: Record<string, string>; connected: string[] }> {
-    const res = await fetch(`${BASE_URL}/provider`)
+    const res = await fetchWithTimeout(`${BASE_URL}/provider`)
     const data = await res.json()
     // 后端返回 { all: [...], default: {...}, connected: [...] }
     const providerList = data.all || data
@@ -1160,7 +1196,7 @@ export const providerApi = {
   // 获取认证方法
   // 后端返回 Record<string, AuthMethod[]>
   async getAuthMethods(): Promise<Record<string, AuthMethod[]>> {
-    const res = await fetch(`${BASE_URL}/provider/auth`)
+    const res = await fetchWithTimeout(`${BASE_URL}/provider/auth`)
     const data = await res.json()
     const normalized: Record<string, AuthMethod[]> = {}
     for (const [providerId, methods] of Object.entries(data || {})) {
@@ -1177,7 +1213,7 @@ export const providerApi = {
 
   // 启动 OAuth - 需要 method index
   async startOAuth(providerId: string, methodIndex: number = 0): Promise<{ url: string }> {
-    const res = await fetch(`${BASE_URL}/provider/${encodeURIComponent(providerId)}/oauth/authorize`, {
+    const res = await fetchWithTimeout(`${BASE_URL}/provider/${encodeURIComponent(providerId)}/oauth/authorize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ method: methodIndex })
@@ -1188,7 +1224,7 @@ export const providerApi = {
 
   // 完成 OAuth 回调
   async completeOAuth(providerId: string, code: string, methodIndex: number = 0): Promise<void> {
-    await fetch(`${BASE_URL}/provider/${encodeURIComponent(providerId)}/oauth/callback`, {
+    await fetchWithTimeout(`${BASE_URL}/provider/${encodeURIComponent(providerId)}/oauth/callback`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ method: methodIndex, code })
@@ -1247,14 +1283,14 @@ export const customProviderApi = {
 export const configApi = {
   // 获取当前配置
   async get(): Promise<Config> {
-    const res = await fetch(`${BASE_URL}/config`)
+    const res = await fetchWithTimeout(`${BASE_URL}/config`)
     const data = await res.json()
     return data
   },
 
   // 更新配置
   async update(config: Partial<Config>): Promise<Config> {
-    const res = await fetch(`${BASE_URL}/config`, {
+    const res = await fetchWithTimeout(`${BASE_URL}/config`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config)
@@ -1266,7 +1302,7 @@ export const configApi = {
 
 export const authApi = {
   async list(): Promise<string[]> {
-    const res = await fetch(`${BASE_URL}/auth`)
+    const res = await fetchWithTimeout(`${BASE_URL}/auth`)
     if (!res.ok) return []
     const data = await res.json().catch(() => [])
     return Array.isArray(data) ? data : []
@@ -1275,7 +1311,7 @@ export const authApi = {
   // 设置 API Key
   // 后端期望 Auth.Info 格式: { type: 'api', key: string }
   async setApiKey(providerId: string, apiKey: string): Promise<void> {
-    await fetch(`${BASE_URL}/auth/${encodeURIComponent(providerId)}`, {
+    await fetchWithTimeout(`${BASE_URL}/auth/${encodeURIComponent(providerId)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'api', key: apiKey })
@@ -1284,14 +1320,14 @@ export const authApi = {
 
   // 移除认证
   async remove(providerId: string): Promise<void> {
-    await fetch(`${BASE_URL}/auth/${encodeURIComponent(providerId)}`, {
+    await fetchWithTimeout(`${BASE_URL}/auth/${encodeURIComponent(providerId)}`, {
       method: 'DELETE'
     })
   }
 }
 
 export async function importAuthFromOpencode(): Promise<AuthImportResult> {
-  const res = await fetch(`${BASE_URL}/auth/import/opencode`, {
+  const res = await fetchWithTimeout(`${BASE_URL}/auth/import/opencode`, {
     method: 'POST'
   })
   if (!res.ok) {
@@ -1305,7 +1341,7 @@ export async function importAuthFromOpencode(): Promise<AuthImportResult> {
 export const questionApi = {
   // 获取待处理的问题列表
   async list(): Promise<QuestionRequest[]> {
-    const res = await fetch(`${BASE_URL}/question`)
+    const res = await fetchWithTimeout(`${BASE_URL}/question`)
     const data = await res.json()
     return Array.isArray(data) ? data : []
   },
@@ -1313,7 +1349,7 @@ export const questionApi = {
   // 回复问题
   // answers 是二维数组: 每个问题对应一个选中的答案数组
   async reply(requestId: string, answers: string[][]): Promise<void> {
-    await fetch(`${BASE_URL}/question/${encodeURIComponent(requestId)}/reply`, {
+    await fetchWithTimeout(`${BASE_URL}/question/${encodeURIComponent(requestId)}/reply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ answers })
@@ -1322,7 +1358,7 @@ export const questionApi = {
 
   // 拒绝问题
   async reject(requestId: string): Promise<void> {
-    await fetch(`${BASE_URL}/question/${encodeURIComponent(requestId)}/reject`, {
+    await fetchWithTimeout(`${BASE_URL}/question/${encodeURIComponent(requestId)}/reject`, {
       method: 'POST'
     })
   }
