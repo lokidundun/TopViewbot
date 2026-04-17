@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Square, PanelLeftOpen, Folder } from 'lucide-vue-next'
+import { Square, PanelLeftOpen, Folder, User, LogOut } from 'lucide-vue-next'
 import type { Session } from '../api/client'
+import { useAuth } from '../composables/useAuth'
 
 defineProps<{
   session: Session | null
@@ -14,6 +15,8 @@ const emit = defineEmits<{
   'toggle-sidebar': []
   'abort': []
 }>()
+
+const { user, logout } = useAuth()
 </script>
 
 <template>
@@ -59,6 +62,17 @@ const emit = defineEmits<{
         <Square :size="14" fill="currentColor" />
         <span>停止</span>
       </button>
+
+      <!-- User Info & Logout -->
+      <div v-if="user" class="user-info">
+        <span class="user-name" :title="user.username">
+          <User :size="14" />
+          {{ user.displayName || user.username }}
+        </span>
+        <button class="btn btn-ghost btn-icon" @click="logout" title="登出">
+          <LogOut :size="16" />
+        </button>
+      </div>
     </div>
   </header>
 </template>
@@ -141,5 +155,24 @@ const emit = defineEmits<{
 
 .abort-btn:hover {
   background: var(--error-subtle);
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-left: var(--space-sm);
+}
+
+.user-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

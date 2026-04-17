@@ -2,6 +2,7 @@ import path from "path"
 import { Global } from "../global"
 import fs from "fs/promises"
 import z from "zod"
+import { getOrCreateMasterKey, maybeEncrypt, maybeDecrypt } from "./crypto"
 
 export const OAUTH_DUMMY_KEY = "opencode-oauth-dummy-key"
 
@@ -46,6 +47,13 @@ export namespace Auth {
     .meta({ ref: "AuthImportResult" })
   export type ImportResult = z.infer<typeof ImportResult>
 
+  // Fields that should be encrypted at rest
+  const SENSITIVE_FIELDS: Record<string, string[]> = {
+    api: ["key"],
+    oauth: ["access", "refresh"],
+    wellknown: ["token"],
+  }
+
   // Get auth file path - TopViewbot custom path takes priority
   function getAuthFilePath(): string {
     if (process.env.TOPVIEWBOT_AUTH_PATH) {
@@ -58,15 +66,56 @@ export namespace Auth {
     return path.join(Global.Path.data, "auth.json")
   }
 
+  /** Decrypt sensitive fields in an auth entry */
+  function decryptEntry(entry: Record<string, unknown>, key: Buffer): Record<string, unknown> {
+    const type = entry.type as string
+    const fields = SENSITIVE_FIELDS[type]
+    if (!fields) return entry
+
+    const decrypted = { ...entry }
+    for (const field of fields) {
+      if (field in decrypted) {
+        decrypted[field] = maybeDecrypt(decrypted[field], key)
+      }
+    }
+    return decrypted
+  }
+
+  /** Encrypt sensitive fields in an auth entry */
+  function encryptEntry(entry: Record<string, unknown>, key: Buffer): Record<string, unknown> {
+    const type = entry.type as string
+    const fields = SENSITIVE_FIELDS[type]
+    if (!fields) return entry
+
+    const encrypted = { ...entry }
+    for (const field of fields) {
+      if (field in encrypted) {
+        encrypted[field] = maybeEncrypt(encrypted[field], key)
+      }
+    }
+    return encrypted
+  }
+
   // Helper to load auth from a file
   async function loadAuthFile(filePath: string): Promise<Record<string, Info>> {
     const file = Bun.file(filePath)
-    const data = await file.json().catch(() => ({}) as Record<string, unknown>)
-    return Object.entries(data).reduce(
-      (acc, [key, value]) => {
-        const parsed = Info.safeParse(value)
+    const raw = await file.json().catch(() => ({}) as Record<string, unknown>)
+
+    let key: Buffer | undefined
+    try {
+      key = await getOrCreateMasterKey(filePath)
+    } catch {
+      // If key cannot be loaded/created, proceed without decryption
+    }
+
+    return Object.entries(raw).reduce(
+      (acc, [providerID, value]) => {
+        const entry = key && typeof value === "object" && value !== null
+          ? decryptEntry(value as Record<string, unknown>, key)
+          : (value as Record<string, unknown>)
+        const parsed = Info.safeParse(entry)
         if (!parsed.success) return acc
-        acc[key] = parsed.data
+        acc[providerID] = parsed.data
         return acc
       },
       {} as Record<string, Info>,
@@ -92,16 +141,31 @@ export namespace Auth {
     // Load current data from TopViewbot auth file only (not merged)
     const file = Bun.file(filePath)
     const currentData = await file.json().catch(() => ({}) as Record<string, unknown>)
+
+    const masterKey = await getOrCreateMasterKey(filePath).catch(() => undefined)
+
     const data = Object.entries(currentData).reduce(
       (acc, [k, value]) => {
-        const parsed = Info.safeParse(value)
-        if (parsed.success) acc[k] = parsed.data
+        const entry = masterKey && typeof value === "object" && value !== null
+          ? decryptEntry(value as Record<string, unknown>, masterKey)
+          : (value as Record<string, unknown>)
+        const parsed = Info.safeParse(entry)
+        if (!parsed.success) return acc
+        acc[k] = parsed.data
         return acc
       },
       {} as Record<string, Info>,
     )
 
-    await Bun.write(file, JSON.stringify({ ...data, [key]: info }, null, 2))
+    // Merge and encrypt before writing
+    const merged: Record<string, Info> = { ...data, [key]: info }
+    const encryptedPayload: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(merged)) {
+      const raw = Info.parse(v)
+      encryptedPayload[k] = masterKey ? encryptEntry(raw as unknown as Record<string, unknown>, masterKey) : raw
+    }
+
+    await Bun.write(file, JSON.stringify(encryptedPayload, null, 2))
     await fs.chmod(filePath, 0o600)
   }
 
@@ -111,17 +175,32 @@ export namespace Auth {
 
     // Load current data from TopViewbot auth file only
     const currentData = await file.json().catch(() => ({}) as Record<string, unknown>)
+
+    const masterKey = await getOrCreateMasterKey(filePath).catch(() => undefined)
+
     const data = Object.entries(currentData).reduce(
       (acc, [k, value]) => {
-        const parsed = Info.safeParse(value)
-        if (parsed.success) acc[k] = parsed.data
+        const entry = masterKey && typeof value === "object" && value !== null
+          ? decryptEntry(value as Record<string, unknown>, masterKey)
+          : (value as Record<string, unknown>)
+        const parsed = Info.safeParse(entry)
+        if (!parsed.success) return acc
+        acc[k] = parsed.data
         return acc
       },
       {} as Record<string, Info>,
     )
 
     delete data[key]
-    await Bun.write(file, JSON.stringify(data, null, 2))
+
+    // Encrypt before writing back
+    const encryptedPayload: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(data)) {
+      const raw = Info.parse(v)
+      encryptedPayload[k] = masterKey ? encryptEntry(raw as unknown as Record<string, unknown>, masterKey) : raw
+    }
+
+    await Bun.write(file, JSON.stringify(encryptedPayload, null, 2))
     await fs.chmod(filePath, 0o600)
   }
 
