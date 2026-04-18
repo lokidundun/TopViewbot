@@ -46,14 +46,11 @@ const {
 const { theme, toggleTheme } = useTheme();
 const {
   profile,
-  brandLogo,
   botAvatar,
   setName,
   setAvatar,
-  setLogo,
   setBotAvatar,
   clearAvatar,
-  clearLogo,
   clearBotAvatar,
 } = useUserProfile();
 const { user } = useAuth();
@@ -65,7 +62,6 @@ const defaultName = computed(
 );
 const editingName = ref(defaultName.value);
 const avatarInputRef = ref<HTMLInputElement>();
-const logoInputRef = ref<HTMLInputElement>();
 const botAvatarInputRef = ref<HTMLInputElement>();
 
 watch(defaultName, (next) => {
@@ -85,18 +81,6 @@ function handleAvatarUpload(e: Event) {
   const reader = new FileReader();
   reader.onload = () => {
     setAvatar(reader.result as string);
-  };
-  reader.readAsDataURL(file);
-  input.value = "";
-}
-
-function handleLogoUpload(e: Event) {
-  const input = e.target as HTMLInputElement;
-  const file = input.files?.[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    setLogo(reader.result as string);
   };
   reader.readAsDataURL(file);
   input.value = "";

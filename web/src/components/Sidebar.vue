@@ -90,7 +90,7 @@ const sidebarUserName = computed(
   () =>
     user.value?.displayName ||
     user.value?.username ||
-    profile.name ||
+    profile.value.name ||
     t("common.user"),
 );
 
@@ -150,19 +150,6 @@ function getSessionTitle(session: Session): string {
     session.title ||
     t("sidebar.sessionFallback", { id: session.id.slice(0, 6) })
   );
-}
-
-function getDirectoryTail(directory: string): string {
-  const normalized = (directory || "").replace(/\\/g, "/");
-  return normalized.split("/").filter(Boolean).pop() || ".";
-}
-
-function getSessionProjectLabel(session: SidebarSession): string {
-  return session.projectDisplayName || getDirectoryTail(session.directory);
-}
-
-function getSessionProjectTitle(session: SidebarSession): string {
-  return session.projectDisplayPath || session.directory || "";
 }
 
 // Context menu handlers

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onUnmounted, computed, onMounted } from "vue";
-import { Terminal, Eye, X, ChevronLeft } from "lucide-vue-next";
+import { Eye, X, ChevronLeft } from "lucide-vue-next";
 import TerminalContent from "./TerminalContent.vue";
 import PreviewContent from "./PreviewContent.vue";
 import { useRightPanel } from "../composables/useRightPanel";
