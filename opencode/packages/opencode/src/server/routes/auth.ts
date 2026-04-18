@@ -15,6 +15,7 @@ const RegisterRequest = z.object({
   username: z.string().min(2).max(32),
   password: z.string().min(6),
   displayName: z.string().max(64).optional(),
+  inviteCode: z.string().optional(),
 })
 
 const ChangePasswordRequest = z.object({
@@ -76,7 +77,7 @@ export function AuthRoutes() {
       validator("json", RegisterRequest),
       async (c) => {
         const body = c.req.valid("json")
-        const result = await UserAuth.register(body.username, body.password, body.displayName)
+        const result = await UserAuth.register(body.username, body.password, body.displayName, body.inviteCode)
         if (!result.success) {
           return c.json({ success: false, error: result.error }, 400)
         }
