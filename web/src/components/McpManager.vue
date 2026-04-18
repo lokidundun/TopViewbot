@@ -1,324 +1,369 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import type { McpServer, McpConfig } from '../api/client'
+import { ref } from "vue";
+import type { McpServer, McpConfig } from "../api/client";
 
 defineProps<{
-  servers: McpServer[]
-  loading: boolean
-}>()
+  servers: McpServer[];
+  loading: boolean;
+}>();
 
 const emit = defineEmits<{
-  connect: [name: string]
-  authenticate: [name: string]
-  disconnect: [name: string]
-  add: [name: string, config: McpConfig]
-  remove: [name: string]
-}>()
+  connect: [name: string];
+  authenticate: [name: string];
+  disconnect: [name: string];
+  add: [name: string, config: McpConfig];
+  remove: [name: string];
+}>();
 
 // 表单状态
-const showForm = ref(false)
-const formName = ref('')
-const formType = ref<'local' | 'remote'>('local')
-const formCommand = ref('')
-const formUrl = ref('')
-const formError = ref('')
-const isSubmitting = ref(false)
+const showForm = ref(false);
+const formName = ref("");
+const formType = ref<"local" | "remote">("local");
+const formCommand = ref("");
+const formUrl = ref("");
+const formError = ref("");
+const isSubmitting = ref(false);
 
 // JSON 编辑模式
-const editMode = ref<'form' | 'json'>('form')
-const jsonInput = ref('')
-const jsonError = ref('')
+const editMode = ref<"form" | "json">("form");
+const jsonInput = ref("");
+const jsonError = ref("");
 
 function getStatusBadge(status: string) {
   switch (status) {
-    case 'connected': return 'badge-success'
-    case 'connecting': return 'badge-warning'
-    case 'auth_in_progress': return 'badge-warning'
-    case 'failed': return 'badge-error'
-    case 'needs_auth': return 'badge-warning'
-    case 'needs_client_registration': return 'badge-warning'
-    case 'disabled': return 'badge-default'
-    default: return 'badge-default'
+    case "connected":
+      return "badge-success";
+    case "connecting":
+      return "badge-warning";
+    case "auth_in_progress":
+      return "badge-warning";
+    case "failed":
+      return "badge-error";
+    case "needs_auth":
+      return "badge-warning";
+    case "needs_client_registration":
+      return "badge-warning";
+    case "disabled":
+      return "badge-default";
+    default:
+      return "badge-default";
   }
 }
 
 function getStatusText(status: string) {
   switch (status) {
-    case 'connected': return '已连接'
-    case 'connecting': return '连接中'
-    case 'auth_in_progress': return '认证中'
-    case 'disabled': return '已禁用'
-    case 'failed': return '连接失败'
-    case 'needs_auth': return '需要认证'
-    case 'needs_client_registration': return '需要静态注册'
-    default: return status
+    case "connected":
+      return "已连接";
+    case "connecting":
+      return "连接中";
+    case "auth_in_progress":
+      return "认证中";
+    case "disabled":
+      return "已禁用";
+    case "failed":
+      return "连接失败";
+    case "needs_auth":
+      return "需要认证";
+    case "needs_client_registration":
+      return "需要静态注册";
+    default:
+      return status;
   }
 }
 
 function canConnect(status: string) {
-  return status === 'disabled' || status === 'failed'
+  return status === "disabled" || status === "failed";
 }
 
 function resetForm() {
-  formName.value = ''
-  formType.value = 'local'
-  formCommand.value = ''
-  formUrl.value = ''
-  formError.value = ''
-  editMode.value = 'form'
-  jsonInput.value = ''
-  jsonError.value = ''
+  formName.value = "";
+  formType.value = "local";
+  formCommand.value = "";
+  formUrl.value = "";
+  formError.value = "";
+  editMode.value = "form";
+  jsonInput.value = "";
+  jsonError.value = "";
 }
 
 function openForm() {
-  resetForm()
-  showForm.value = true
+  resetForm();
+  showForm.value = true;
 }
 
 function closeForm() {
-  showForm.value = false
-  resetForm()
+  showForm.value = false;
+  resetForm();
 }
 
 async function submitForm() {
-  formError.value = ''
+  formError.value = "";
 
   if (!formName.value.trim()) {
-    formError.value = '请输入服务器名称'
-    return
+    formError.value = "请输入服务器名称";
+    return;
   }
 
-  if (formType.value === 'local' && !formCommand.value.trim()) {
-    formError.value = '请输入命令'
-    return
+  if (formType.value === "local" && !formCommand.value.trim()) {
+    formError.value = "请输入命令";
+    return;
   }
 
-  if (formType.value === 'remote' && !formUrl.value.trim()) {
-    formError.value = '请输入 URL'
-    return
+  if (formType.value === "remote" && !formUrl.value.trim()) {
+    formError.value = "请输入 URL";
+    return;
   }
 
-  isSubmitting.value = true
+  isSubmitting.value = true;
 
   try {
-    let config: McpConfig
-    if (formType.value === 'local') {
+    let config: McpConfig;
+    if (formType.value === "local") {
       // 解析命令行，支持引号
-      const command = parseCommand(formCommand.value)
+      const command = parseCommand(formCommand.value);
       config = {
-        type: 'local',
+        type: "local",
         command,
-        enabled: true
-      }
+        enabled: true,
+      };
     } else {
       config = {
-        type: 'remote',
+        type: "remote",
         url: formUrl.value.trim(),
-        enabled: true
-      }
+        enabled: true,
+      };
     }
 
-    emit('add', formName.value.trim(), config)
-    closeForm()
+    emit("add", formName.value.trim(), config);
+    closeForm();
   } catch (e: any) {
-    formError.value = e.message || '添加失败'
+    formError.value = e.message || "添加失败";
   } finally {
-    isSubmitting.value = false
+    isSubmitting.value = false;
   }
 }
 
 // 解析命令行字符串为数组
 function parseCommand(cmd: string): string[] {
-  const result: string[] = []
-  let current = ''
-  let inQuote = false
-  let quoteChar = ''
+  const result: string[] = [];
+  let current = "";
+  let inQuote = false;
+  let quoteChar = "";
 
   for (let i = 0; i < cmd.length; i++) {
-    const char = cmd[i]
+    const char = cmd[i];
 
     if ((char === '"' || char === "'") && !inQuote) {
-      inQuote = true
-      quoteChar = char
+      inQuote = true;
+      quoteChar = char;
     } else if (char === quoteChar && inQuote) {
-      inQuote = false
-      quoteChar = ''
-    } else if (char === ' ' && !inQuote) {
+      inQuote = false;
+      quoteChar = "";
+    } else if (char === " " && !inQuote) {
       if (current) {
-        result.push(current)
-        current = ''
+        result.push(current);
+        current = "";
       }
     } else {
-      current += char
+      current += char;
     }
   }
 
   if (current) {
-    result.push(current)
+    result.push(current);
   }
 
-  return result
+  return result;
 }
 
 // 验证 MCP 配置格式
 function validateMcpConfig(config: any): string | null {
   // 验证 type 字段
   if (!config.type) {
-    return '缺少必要字段: type'
+    return "缺少必要字段: type";
   }
-  if (config.type !== 'local' && config.type !== 'remote') {
-    return 'type 必须是 "local" 或 "remote"'
+  if (config.type !== "local" && config.type !== "remote") {
+    return 'type 必须是 "local" 或 "remote"';
   }
 
   // 验证 local 类型
-  if (config.type === 'local') {
+  if (config.type === "local") {
     if (!config.command) {
-      return 'local 类型缺少必要字段: command'
+      return "local 类型缺少必要字段: command";
     }
     if (!Array.isArray(config.command)) {
-      return 'command 必须是字符串数组'
+      return "command 必须是字符串数组";
     }
     if (config.command.length === 0) {
-      return 'command 数组不能为空'
+      return "command 数组不能为空";
     }
-    if (!config.command.every((c: any) => typeof c === 'string')) {
-      return 'command 数组中的元素必须是字符串'
+    if (!config.command.every((c: any) => typeof c === "string")) {
+      return "command 数组中的元素必须是字符串";
     }
 
     // 验证 environment（可选）
     if (config.environment !== undefined) {
-      if (typeof config.environment !== 'object' || config.environment === null || Array.isArray(config.environment)) {
-        return 'environment 必须是对象'
+      if (
+        typeof config.environment !== "object" ||
+        config.environment === null ||
+        Array.isArray(config.environment)
+      ) {
+        return "environment 必须是对象";
       }
       for (const [key, value] of Object.entries(config.environment)) {
-        if (typeof value !== 'string') {
-          return `environment.${key} 的值必须是字符串`
+        if (typeof value !== "string") {
+          return `environment.${key} 的值必须是字符串`;
         }
       }
     }
   }
 
   // 验证 remote 类型
-  if (config.type === 'remote') {
+  if (config.type === "remote") {
     if (!config.url) {
-      return 'remote 类型缺少必要字段: url'
+      return "remote 类型缺少必要字段: url";
     }
-    if (typeof config.url !== 'string') {
-      return 'url 必须是字符串'
+    if (typeof config.url !== "string") {
+      return "url 必须是字符串";
     }
     // 简单的 URL 格式验证
-    if (!config.url.startsWith('http://') && !config.url.startsWith('https://')) {
-      return 'url 必须以 http:// 或 https:// 开头'
+    if (
+      !config.url.startsWith("http://") &&
+      !config.url.startsWith("https://")
+    ) {
+      return "url 必须以 http:// 或 https:// 开头";
     }
 
     // 验证 headers（可选）
     if (config.headers !== undefined) {
-      if (typeof config.headers !== 'object' || config.headers === null || Array.isArray(config.headers)) {
-        return 'headers 必须是对象'
+      if (
+        typeof config.headers !== "object" ||
+        config.headers === null ||
+        Array.isArray(config.headers)
+      ) {
+        return "headers 必须是对象";
       }
       for (const [key, value] of Object.entries(config.headers)) {
-        if (typeof value !== 'string') {
-          return `headers.${key} 的值必须是字符串`
+        if (typeof value !== "string") {
+          return `headers.${key} 的值必须是字符串`;
         }
       }
     }
   }
 
   // 验证公共可选字段
-  if (config.enabled !== undefined && typeof config.enabled !== 'boolean') {
-    return 'enabled 必须是布尔值'
+  if (config.enabled !== undefined && typeof config.enabled !== "boolean") {
+    return "enabled 必须是布尔值";
   }
   if (config.timeout !== undefined) {
-    if (typeof config.timeout !== 'number' || !Number.isInteger(config.timeout) || config.timeout <= 0) {
-      return 'timeout 必须是正整数'
+    if (
+      typeof config.timeout !== "number" ||
+      !Number.isInteger(config.timeout) ||
+      config.timeout <= 0
+    ) {
+      return "timeout 必须是正整数";
     }
   }
 
   // 检查是否有未知字段
-  const localAllowedFields = ['type', 'command', 'environment', 'enabled', 'timeout']
-  const remoteAllowedFields = ['type', 'url', 'headers', 'enabled', 'timeout', 'oauth']
-  const allowedFields = config.type === 'local' ? localAllowedFields : remoteAllowedFields
+  const localAllowedFields = [
+    "type",
+    "command",
+    "environment",
+    "enabled",
+    "timeout",
+  ];
+  const remoteAllowedFields = [
+    "type",
+    "url",
+    "headers",
+    "enabled",
+    "timeout",
+    "oauth",
+  ];
+  const allowedFields =
+    config.type === "local" ? localAllowedFields : remoteAllowedFields;
 
   for (const key of Object.keys(config)) {
     if (!allowedFields.includes(key)) {
-      return `未知字段: ${key}（${config.type} 类型允许的字段: ${allowedFields.join(', ')}）`
+      return `未知字段: ${key}（${config.type} 类型允许的字段: ${allowedFields.join(", ")}）`;
     }
   }
 
-  return null // 验证通过
+  return null; // 验证通过
 }
 
 // 验证服务器名称
 function validateServerName(name: string): string | null {
-  if (!name || name.trim() === '') {
-    return '服务器名称不能为空'
+  if (!name || name.trim() === "") {
+    return "服务器名称不能为空";
   }
   if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
-    return '服务器名称只能包含字母、数字、下划线和连字符'
+    return "服务器名称只能包含字母、数字、下划线和连字符";
   }
   if (name.length > 64) {
-    return '服务器名称不能超过 64 个字符'
+    return "服务器名称不能超过 64 个字符";
   }
-  return null
+  return null;
 }
 
 // JSON 模式提交
 function submitJson() {
-  jsonError.value = ''
+  jsonError.value = "";
 
   try {
     // 尝试解析为 { "name": config } 格式
-    const trimmed = jsonInput.value.trim()
+    const trimmed = jsonInput.value.trim();
     if (!trimmed) {
-      jsonError.value = '请输入 MCP 配置'
-      return
+      jsonError.value = "请输入 MCP 配置";
+      return;
     }
 
-    const wrapped = `{${trimmed}}`
-    let parsed: any
+    const wrapped = `{${trimmed}}`;
+    let parsed: any;
     try {
-      parsed = JSON.parse(wrapped)
+      parsed = JSON.parse(wrapped);
     } catch (e: any) {
-      jsonError.value = 'JSON 格式错误: ' + e.message
-      return
+      jsonError.value = "JSON 格式错误: " + e.message;
+      return;
     }
 
-    const entries = Object.entries(parsed)
+    const entries = Object.entries(parsed);
     if (entries.length === 0) {
-      jsonError.value = '请输入 MCP 配置'
-      return
+      jsonError.value = "请输入 MCP 配置";
+      return;
     }
     if (entries.length > 1) {
-      jsonError.value = '一次只能添加一个 MCP 配置'
-      return
+      jsonError.value = "一次只能添加一个 MCP 配置";
+      return;
     }
 
-    const [name, config] = entries[0] as [string, any]
+    const [name, config] = entries[0] as [string, any];
 
     // 验证服务器名称
-    const nameError = validateServerName(name)
+    const nameError = validateServerName(name);
     if (nameError) {
-      jsonError.value = nameError
-      return
+      jsonError.value = nameError;
+      return;
     }
 
     // 验证配置格式
-    const configError = validateMcpConfig(config)
+    const configError = validateMcpConfig(config);
     if (configError) {
-      jsonError.value = configError
-      return
+      jsonError.value = configError;
+      return;
     }
 
-    emit('add', name, config)
-    closeForm()
+    emit("add", name, config);
+    closeForm();
   } catch (e: any) {
-    jsonError.value = '发生错误: ' + e.message
+    jsonError.value = "发生错误: " + e.message;
   }
 }
 
 function confirmRemove(name: string) {
   if (confirm(`确定要删除 MCP 服务器 "${name}" 吗？`)) {
-    emit('remove', name)
+    emit("remove", name);
   }
 }
 </script>
@@ -328,11 +373,21 @@ function confirmRemove(name: string) {
     <div class="section-header">
       <div class="section-header-left">
         <h3 class="section-title">MCP 服务器</h3>
-        <p class="section-desc text-muted text-sm">全局 MCP 配置概览。每个项目可在对话中的 "+" 菜单独立控制 MCP 连接状态。</p>
+        <p class="section-desc text-muted text-sm">
+          全局 MCP 配置概览。每个项目可在对话中的 "+" 菜单独立控制 MCP
+          连接状态。
+        </p>
       </div>
       <button class="btn btn-primary btn-sm" @click="openForm" v-if="!showForm">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 5v14M5 12h14"/>
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M12 5v14M5 12h14" />
         </svg>
         添加
       </button>
@@ -343,8 +398,15 @@ function confirmRemove(name: string) {
       <div class="form-header">
         <span class="form-title">添加新服务器</span>
         <button class="btn-icon" @click="closeForm" title="关闭">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M18 6L6 18M6 6l12 12"/>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M18 6L6 18M6 6l12 12" />
           </svg>
         </button>
       </div>
@@ -423,7 +485,8 @@ function confirmRemove(name: string) {
       <!-- JSON 模式 -->
       <div v-if="editMode === 'json'" class="form-body">
         <div class="json-hint">
-          输入 MCP 配置 JSON，格式: <code>"server-name": { "type": "local", "command": [...] }</code>
+          输入 MCP 配置 JSON，格式:
+          <code>"server-name": { "type": "local", "command": [...] }</code>
         </div>
         <div class="form-group">
           <textarea
@@ -450,7 +513,7 @@ function confirmRemove(name: string) {
           @click="editMode === 'json' ? submitJson() : submitForm()"
           :disabled="isSubmitting"
         >
-          {{ isSubmitting ? '添加中...' : '添加服务器' }}
+          {{ isSubmitting ? "添加中..." : "添加服务器" }}
         </button>
       </div>
     </div>
@@ -462,9 +525,16 @@ function confirmRemove(name: string) {
 
     <div v-else-if="servers.length === 0 && !showForm" class="empty-state">
       <div class="empty-state-icon">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <rect x="2" y="3" width="20" height="14" rx="2"/>
-          <path d="M8 21h8M12 17v4"/>
+        <svg
+          width="48"
+          height="48"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
+          <rect x="2" y="3" width="20" height="14" rx="2" />
+          <path d="M8 21h8M12 17v4" />
         </svg>
       </div>
       <p class="empty-state-title">暂无 MCP 服务器</p>
@@ -474,9 +544,16 @@ function confirmRemove(name: string) {
     <div v-else-if="servers.length > 0" class="list">
       <div v-for="server in servers" :key="server.name" class="list-item">
         <div class="list-item-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="2" y="3" width="20" height="14" rx="2"/>
-            <path d="M8 21h8M12 17v4"/>
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <rect x="2" y="3" width="20" height="14" rx="2" />
+            <path d="M8 21h8M12 17v4" />
           </svg>
         </div>
         <div class="list-item-content">
@@ -515,15 +592,27 @@ function confirmRemove(name: string) {
           >
             认证
           </button>
-          <div v-else-if="server.status === 'connecting'" class="loading-spinner"></div>
+          <div
+            v-else-if="server.status === 'connecting'"
+            class="loading-spinner"
+          ></div>
 
           <button
             class="btn btn-ghost btn-sm btn-danger"
             @click="confirmRemove(server.name)"
             title="删除"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"
+              />
             </svg>
           </button>
         </div>
@@ -531,13 +620,20 @@ function confirmRemove(name: string) {
     </div>
 
     <!-- Tools List -->
-    <template v-for="server in servers.filter(s => s.status === 'connected' && s.tools?.length)" :key="`tools-${server.name}`">
+    <template
+      v-for="server in servers.filter(
+        (s) => s.status === 'connected' && s.tools?.length,
+      )"
+      :key="`tools-${server.name}`"
+    >
       <div class="tools-section">
         <h4 class="tools-title text-sm text-muted">{{ server.name }} 工具</h4>
         <div class="tools-grid">
           <div v-for="tool in server.tools" :key="tool.name" class="tool-card">
             <div class="tool-name font-mono text-sm">{{ tool.name }}</div>
-            <div v-if="tool.description" class="tool-desc text-xs text-muted">{{ tool.description }}</div>
+            <div v-if="tool.description" class="tool-desc text-xs text-muted">
+              {{ tool.description }}
+            </div>
           </div>
         </div>
       </div>
@@ -550,6 +646,7 @@ function confirmRemove(name: string) {
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
+  padding: var(--space-lg);
 }
 
 .section-header {
@@ -591,10 +688,11 @@ function confirmRemove(name: string) {
 
 /* 添加表单样式 */
 .add-form {
-  background: var(--bg-tertiary);
-  border: 0.5px solid var(--border-default);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 
 .form-header {
@@ -602,7 +700,8 @@ function confirmRemove(name: string) {
   align-items: center;
   justify-content: space-between;
   padding: var(--space-sm) var(--space-md);
-  border-bottom: 0.5px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
 }
 
 .form-title {
@@ -625,7 +724,7 @@ function confirmRemove(name: string) {
 }
 
 .btn-icon:hover {
-  background: var(--bg-secondary);
+  background: var(--bg-tertiary);
   color: var(--text-primary);
 }
 
@@ -650,17 +749,20 @@ function confirmRemove(name: string) {
 
 .form-input {
   padding: var(--space-sm) var(--space-md);
-  border: 0.5px solid var(--border-default);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   color: var(--text-primary);
   font-size: 14px;
-  transition: border-color var(--transition-fast);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .form-input:focus {
   outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 .form-input::placeholder {
@@ -702,8 +804,8 @@ function confirmRemove(name: string) {
   justify-content: flex-end;
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-md);
-  border-top: 0.5px solid var(--border-subtle);
-  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-primary);
 }
 
 /* 模式切换 */
@@ -711,12 +813,13 @@ function confirmRemove(name: string) {
   display: flex;
   padding: var(--space-sm) var(--space-md);
   gap: var(--space-xs);
-  border-bottom: 0.5px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
 }
 
 .mode-btn {
   padding: var(--space-xs) var(--space-sm);
-  border: 0.5px solid var(--border-default);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
@@ -726,7 +829,7 @@ function confirmRemove(name: string) {
 }
 
 .mode-btn:hover {
-  background: var(--bg-secondary);
+  background: var(--bg-tertiary);
   color: var(--text-primary);
 }
 
@@ -745,7 +848,7 @@ function confirmRemove(name: string) {
 }
 
 .json-hint code {
-  background: var(--bg-secondary);
+  background: var(--bg-tertiary);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
@@ -755,21 +858,24 @@ function confirmRemove(name: string) {
 .json-textarea {
   width: 100%;
   padding: var(--space-sm) var(--space-md);
-  border: 0.5px solid var(--border-default);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   color: var(--text-primary);
   font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.5;
   resize: vertical;
   min-height: 200px;
-  transition: border-color var(--transition-fast);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .json-textarea:focus {
   outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 .json-textarea::placeholder {
@@ -805,7 +911,7 @@ function confirmRemove(name: string) {
 
 .tools-section {
   padding-top: var(--space-md);
-  border-top: 0.5px solid var(--border-subtle);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .tools-title {
@@ -821,8 +927,9 @@ function confirmRemove(name: string) {
 
 .tool-card {
   padding: var(--space-sm);
-  background: var(--bg-tertiary);
+  background: var(--bg-secondary);
   border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
 }
 
 .tool-name {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { Plus, Trash2, Edit2, Check, X, Globe } from 'lucide-vue-next'
-import { usePreferences } from '../composables/usePreferences'
+import { ref, onMounted } from "vue";
+import { Plus, Trash2, Edit2, Check, X, Globe } from "lucide-vue-next";
+import { usePreferences } from "../composables/usePreferences";
 
 const {
   globalPreferences,
@@ -15,30 +15,30 @@ const {
   startEdit,
   cancelEdit,
   saveEdit,
-  formatTime
-} = usePreferences()
+  formatTime,
+} = usePreferences();
 
 // 新增偏好的输入
-const newContent = ref('')
+const newContent = ref("");
 
 // 添加偏好
 async function handleAdd() {
-  if (!newContent.value.trim()) return
-  await addPreference(newContent.value, 'global')
-  newContent.value = ''
+  if (!newContent.value.trim()) return;
+  await addPreference(newContent.value, "global");
+  newContent.value = "";
 }
 
 // 删除确认
 async function handleDelete(id: string) {
-  if (confirm('确定要删除这条偏好吗？')) {
-    await deletePreference(id)
+  if (confirm("确定要删除这条偏好吗？")) {
+    await deletePreference(id);
   }
 }
 
 // 初始加载
 onMounted(() => {
-  loadPreferences()
-})
+  loadPreferences();
+});
 </script>
 
 <template>
@@ -78,20 +78,26 @@ onMounted(() => {
     </div>
 
     <!-- 错误提示 -->
-    <div v-if="error" class="error-message">
+    <div v-if="error" class="status-message error">
       {{ error }}
     </div>
 
     <!-- 偏好列表 -->
     <div class="preferences-list">
       <!-- 空状态 -->
-      <div v-if="!loading && globalPreferences.length === 0" class="empty-state">
+      <div
+        v-if="!loading && globalPreferences.length === 0"
+        class="empty-state"
+      >
         <p>还没有设置任何偏好</p>
         <p class="hint">添加偏好后，AI 会在对话中自动遵循</p>
       </div>
 
       <!-- 加载状态 -->
-      <div v-else-if="loading && globalPreferences.length === 0" class="loading-state">
+      <div
+        v-else-if="loading && globalPreferences.length === 0"
+        class="loading-state"
+      >
         <div class="spinner"></div>
         <span>加载中...</span>
       </div>
@@ -122,7 +128,11 @@ onMounted(() => {
                 <button class="action-btn save" @click="saveEdit" title="保存">
                   <Check :size="14" />
                 </button>
-                <button class="action-btn cancel" @click="cancelEdit" title="取消">
+                <button
+                  class="action-btn cancel"
+                  @click="cancelEdit"
+                  title="取消"
+                >
                   <X :size="14" />
                 </button>
               </div>
@@ -132,15 +142,25 @@ onMounted(() => {
               <div class="item-content">
                 <p class="content-text">{{ pref.content }}</p>
                 <div class="item-meta">
-                  <span class="source">{{ pref.source === 'ai' ? 'AI 添加' : '手动添加' }}</span>
+                  <span class="source">{{
+                    pref.source === "ai" ? "AI 添加" : "手动添加"
+                  }}</span>
                   <span class="time">{{ formatTime(pref.createdAt) }}</span>
                 </div>
               </div>
               <div class="item-actions">
-                <button class="action-btn edit" @click="startEdit(pref)" title="编辑">
+                <button
+                  class="action-btn edit"
+                  @click="startEdit(pref)"
+                  title="编辑"
+                >
                   <Edit2 :size="14" />
                 </button>
-                <button class="action-btn delete" @click="handleDelete(pref.id)" title="删除">
+                <button
+                  class="action-btn delete"
+                  @click="handleDelete(pref.id)"
+                  title="删除"
+                >
                   <Trash2 :size="14" />
                 </button>
               </div>
@@ -156,14 +176,15 @@ onMounted(() => {
 .preferences-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--space-lg);
   height: 100%;
   overflow-y: auto;
+  padding: var(--space-lg);
 }
 
 .panel-header {
-  padding-bottom: var(--space-sm);
-  border-bottom: 0.5px solid var(--border-subtle);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .description {
@@ -177,9 +198,11 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  padding: var(--space-md);
-  background: var(--bg-secondary);
-  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 
 .add-input-row {
@@ -189,9 +212,9 @@ onMounted(() => {
 .add-input {
   width: 100%;
   padding: var(--space-sm);
-  border: 0.5px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
   color: var(--text-primary);
   font-size: 13px;
   resize: vertical;
@@ -201,6 +224,7 @@ onMounted(() => {
 .add-input:focus {
   outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 .add-input::placeholder {
@@ -227,7 +251,7 @@ onMounted(() => {
   gap: 6px;
   padding: 8px 16px;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--accent);
   color: white;
   font-size: 13px;
@@ -245,16 +269,6 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-/* 错误提示 */
-.error-message {
-  padding: var(--space-sm) var(--space-md);
-  background: rgba(239, 68, 68, 0.1);
-  border: 0.5px solid rgba(239, 68, 68, 0.3);
-  border-radius: var(--radius-sm);
-  color: #ef4444;
-  font-size: 13px;
-}
-
 /* 偏好列表 */
 .preferences-list {
   flex: 1;
@@ -270,6 +284,7 @@ onMounted(() => {
   padding: var(--space-xl);
   color: var(--text-muted);
   text-align: center;
+  border-radius: var(--radius-lg);
 }
 
 .empty-state .hint {
@@ -293,7 +308,9 @@ onMounted(() => {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* 偏好分组 */
@@ -310,13 +327,13 @@ onMounted(() => {
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.08em;
 }
 
 .section-title .count {
   padding: 2px 6px;
-  background: var(--bg-tertiary);
-  border-radius: 10px;
+  background: var(--bg-secondary);
+  border-radius: 999px;
   font-size: 11px;
   font-weight: 500;
 }
@@ -332,14 +349,15 @@ onMounted(() => {
   align-items: flex-start;
   gap: var(--space-sm);
   padding: var(--space-md);
-  background: var(--bg-secondary);
-  border: 0.5px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   transition: all var(--transition-fast);
 }
 
 .preference-item:hover {
-  border-color: var(--border-default);
+  border-color: var(--border-hover);
 }
 
 .item-content {
@@ -366,9 +384,9 @@ onMounted(() => {
 .edit-input {
   flex: 1;
   padding: var(--space-sm);
-  border: 0.5px solid var(--accent);
-  border-radius: var(--radius-sm);
-  background: var(--bg-primary);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
   color: var(--text-primary);
   font-size: 14px;
   resize: vertical;
@@ -405,8 +423,8 @@ onMounted(() => {
 }
 
 .action-btn.delete:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: var(--error-subtle);
+  color: var(--error);
 }
 
 .action-btn.save {
@@ -414,11 +432,11 @@ onMounted(() => {
 }
 
 .action-btn.save:hover {
-  background: rgba(34, 197, 94, 0.1);
+  background: var(--success-subtle);
 }
 
 .action-btn.cancel:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: var(--error-subtle);
+  color: var(--error);
 }
 </style>

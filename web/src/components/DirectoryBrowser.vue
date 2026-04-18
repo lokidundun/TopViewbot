@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import {
   AlertCircle,
   ChevronRight,
@@ -11,395 +11,435 @@ import {
   Loader2,
   Search,
   X,
-} from 'lucide-vue-next'
-import { api } from '../api/client'
+} from "lucide-vue-next";
+import { api } from "../api/client";
 
-type BrowseKind = 'filesystem' | 'roots'
+type BrowseKind = "filesystem" | "roots";
 
 interface DirectoryItem {
-  name: string
-  path: string
-  type: 'file' | 'directory'
-  size?: number
-  modified?: number
+  name: string;
+  path: string;
+  type: "file" | "directory";
+  size?: number;
+  modified?: number;
 }
 
-const ROOTS_VIEW = '@roots'
-const ROOTS_LABEL = 'This PC'
+const ROOTS_VIEW = "@roots";
+const ROOTS_LABEL = "This PC";
 
 const props = defineProps<{
-  visible: boolean
-  initialPath?: string
-}>()
+  visible: boolean;
+  initialPath?: string;
+}>();
 
 const emit = defineEmits<{
-  (e: 'select', path: string): void
-  (e: 'cancel'): void
-}>()
+  (e: "select", path: string): void;
+  (e: "cancel"): void;
+}>();
 
-const currentKind = ref<BrowseKind>('filesystem')
-const currentPath = ref('')
-const parentPath = ref<string | null>(null)
-const addressInput = ref('')
-const parentItems = ref<DirectoryItem[]>([])
-const currentItems = ref<DirectoryItem[]>([])
-const previewItems = ref<DirectoryItem[]>([])
-const selectedDirectory = ref('')
-const highlightedCurrentPath = ref<string | null>(null)
-const previewDirectoryPath = ref<string | null>(null)
-const filterText = ref('')
-const isLoading = ref(false)
-const previewLoading = ref(false)
-const error = ref<string | null>(null)
-const previewError = ref<string | null>(null)
-let baseRequestId = 0
-let previewRequestId = 0
+const currentKind = ref<BrowseKind>("filesystem");
+const currentPath = ref("");
+const parentPath = ref<string | null>(null);
+const addressInput = ref("");
+const parentItems = ref<DirectoryItem[]>([]);
+const currentItems = ref<DirectoryItem[]>([]);
+const previewItems = ref<DirectoryItem[]>([]);
+const selectedDirectory = ref("");
+const highlightedCurrentPath = ref<string | null>(null);
+const previewDirectoryPath = ref<string | null>(null);
+const filterText = ref("");
+const isLoading = ref(false);
+const previewLoading = ref(false);
+const error = ref<string | null>(null);
+const previewError = ref<string | null>(null);
+let baseRequestId = 0;
+let previewRequestId = 0;
 
-const filterValue = computed(() => filterText.value.trim().toLowerCase())
-const isRootsView = computed(() => currentKind.value === 'roots')
-const hasLoadedDirectory = computed(() => currentPath.value !== '')
-const canConfirm = computed(() => Boolean(selectedDirectory.value) && selectedDirectory.value !== ROOTS_VIEW)
+const filterValue = computed(() => filterText.value.trim().toLowerCase());
+const isRootsView = computed(() => currentKind.value === "roots");
+const hasLoadedDirectory = computed(() => currentPath.value !== "");
+const canConfirm = computed(
+  () =>
+    Boolean(selectedDirectory.value) && selectedDirectory.value !== ROOTS_VIEW,
+);
 
-const filteredParentItems = computed(() => filterItems(parentItems.value))
-const filteredCurrentItems = computed(() => filterItems(currentItems.value))
-const filteredPreviewItems = computed(() => filterItems(previewItems.value))
+const filteredParentItems = computed(() => filterItems(parentItems.value));
+const filteredCurrentItems = computed(() => filterItems(currentItems.value));
+const filteredPreviewItems = computed(() => filterItems(previewItems.value));
 
-const currentColumnLabel = computed(() => (isRootsView.value ? '可用盘符' : '当前目录'))
+const currentColumnLabel = computed(() =>
+  isRootsView.value ? "可用盘符" : "当前目录",
+);
 const currentColumnEmptyText = computed(() =>
-  isRootsView.value ? '没有检测到可访问盘符' : '当前目录为空，或没有匹配的内容',
-)
+  isRootsView.value ? "没有检测到可访问盘符" : "当前目录为空，或没有匹配的内容",
+);
 const parentColumnEmptyText = computed(() =>
-  isRootsView.value ? '盘符总览没有上一级内容' : '当前目录没有可显示的同级目录',
-)
+  isRootsView.value ? "盘符总览没有上一级内容" : "当前目录没有可显示的同级目录",
+);
 const selectedSummaryText = computed(() => {
-  if (selectedDirectory.value) return selectedDirectory.value
-  if (isRootsView.value) return '请选择一个盘符或目录'
-  return currentPath.value || '未选择目录'
-})
+  if (selectedDirectory.value) return selectedDirectory.value;
+  if (isRootsView.value) return "请选择一个盘符或目录";
+  return currentPath.value || "未选择目录";
+});
 const shouldUseRootsHome = computed(() => {
   return (
     isRootsView.value ||
     isWindowsPath(currentPath.value) ||
-    isWindowsPath(props.initialPath || '') ||
+    isWindowsPath(props.initialPath || "") ||
     isNavigatorWindows()
-  )
-})
+  );
+});
 
 function isNavigatorWindows(): boolean {
-  if (typeof navigator === 'undefined') return false
-  return /win/i.test(navigator.userAgent) || /win/i.test((navigator as Navigator & { platform?: string }).platform || '')
+  if (typeof navigator === "undefined") return false;
+  return (
+    /win/i.test(navigator.userAgent) ||
+    /win/i.test((navigator as Navigator & { platform?: string }).platform || "")
+  );
 }
 
 function isWindowsPath(input: string): boolean {
-  return /^[a-z]:([\\/]|$)/i.test(input)
+  return /^[a-z]:([\\/]|$)/i.test(input);
 }
 
 function normalizePath(input: string): string {
-  if (input === ROOTS_VIEW) return ROOTS_VIEW
-  const normalized = input.replace(/\\/g, '/')
-  return /^[a-z]:\//i.test(normalized) ? normalized.toLowerCase() : normalized
+  if (input === ROOTS_VIEW) return ROOTS_VIEW;
+  const normalized = input.replace(/\\/g, "/");
+  return /^[a-z]:\//i.test(normalized) ? normalized.toLowerCase() : normalized;
 }
 
 function pathsEqual(left?: string | null, right?: string | null): boolean {
-  if (!left || !right) return false
-  return normalizePath(left) === normalizePath(right)
+  if (!left || !right) return false;
+  return normalizePath(left) === normalizePath(right);
 }
 
 function filterItems(items: DirectoryItem[]): DirectoryItem[] {
-  if (!filterValue.value) return items
-  return items.filter((item) => item.name.toLowerCase().includes(filterValue.value))
+  if (!filterValue.value) return items;
+  return items.filter((item) =>
+    item.name.toLowerCase().includes(filterValue.value),
+  );
 }
 
 function syncAddressInput(kind: BrowseKind, path: string) {
-  addressInput.value = kind === 'roots' ? ROOTS_LABEL : path
+  addressInput.value = kind === "roots" ? ROOTS_LABEL : path;
 }
 
 function resetBrowserState() {
-  currentKind.value = 'filesystem'
-  currentPath.value = ''
-  parentPath.value = null
-  addressInput.value = ''
-  parentItems.value = []
-  currentItems.value = []
-  previewItems.value = []
-  selectedDirectory.value = ''
-  highlightedCurrentPath.value = null
-  previewDirectoryPath.value = null
-  filterText.value = ''
-  error.value = null
-  previewError.value = null
-  previewLoading.value = false
+  currentKind.value = "filesystem";
+  currentPath.value = "";
+  parentPath.value = null;
+  addressInput.value = "";
+  parentItems.value = [];
+  currentItems.value = [];
+  previewItems.value = [];
+  selectedDirectory.value = "";
+  highlightedCurrentPath.value = null;
+  previewDirectoryPath.value = null;
+  filterText.value = "";
+  error.value = null;
+  previewError.value = null;
+  previewLoading.value = false;
 }
 
 function clearPreview(resetSelection = true) {
   if (resetSelection) {
-    highlightedCurrentPath.value = null
+    highlightedCurrentPath.value = null;
   }
-  previewDirectoryPath.value = null
-  previewItems.value = []
-  previewError.value = null
-  previewLoading.value = false
+  previewDirectoryPath.value = null;
+  previewItems.value = [];
+  previewError.value = null;
+  previewLoading.value = false;
   if (resetSelection) {
-    selectedDirectory.value = isRootsView.value ? '' : currentPath.value
+    selectedDirectory.value = isRootsView.value ? "" : currentPath.value;
   }
 }
 
 function getHomeTarget(): string {
-  return shouldUseRootsHome.value ? ROOTS_VIEW : '~'
+  return shouldUseRootsHome.value ? ROOTS_VIEW : "~";
 }
 
 async function loadBaseDirectory(
   path: string,
   options: { allowFallback?: boolean; preserveStateOnError?: boolean } = {},
 ) {
-  const requestId = ++baseRequestId
-  isLoading.value = true
-  error.value = null
-  previewRequestId += 1
-  clearPreview(false)
+  const requestId = ++baseRequestId;
+  isLoading.value = true;
+  error.value = null;
+  previewRequestId += 1;
+  clearPreview(false);
 
   try {
-    const result = await api.browseDirectory(path)
-    if (requestId !== baseRequestId) return
+    const result = await api.browseDirectory(path);
+    if (requestId !== baseRequestId) return;
 
-    currentKind.value = result.kind
-    currentPath.value = result.path
-    parentPath.value = result.parent
-    currentItems.value = result.items
-    selectedDirectory.value = result.kind === 'roots' ? '' : result.path
-    highlightedCurrentPath.value = null
-    syncAddressInput(result.kind, result.path)
+    currentKind.value = result.kind;
+    currentPath.value = result.path;
+    parentPath.value = result.parent;
+    currentItems.value = result.items;
+    selectedDirectory.value = result.kind === "roots" ? "" : result.path;
+    highlightedCurrentPath.value = null;
+    syncAddressInput(result.kind, result.path);
 
     if (!result.parent) {
-      parentItems.value = []
-      return
+      parentItems.value = [];
+      return;
     }
 
-    const parentResult = await api.browseDirectory(result.parent)
-    if (requestId !== baseRequestId) return
+    const parentResult = await api.browseDirectory(result.parent);
+    if (requestId !== baseRequestId) return;
 
-    parentItems.value = parentResult.items.filter((item) => item.type === 'directory')
+    parentItems.value = parentResult.items.filter(
+      (item) => item.type === "directory",
+    );
   } catch (err: any) {
-    if (requestId !== baseRequestId) return
+    if (requestId !== baseRequestId) return;
 
     if (options.allowFallback && path !== getHomeTarget()) {
       await loadBaseDirectory(getHomeTarget(), {
         allowFallback: false,
         preserveStateOnError: options.preserveStateOnError,
-      })
-      return
+      });
+      return;
     }
 
     if (!options.preserveStateOnError && !hasLoadedDirectory.value) {
-      resetBrowserState()
+      resetBrowserState();
     }
 
-    error.value = err?.message || '无法访问此目录'
+    error.value = err?.message || "无法访问此目录";
   } finally {
     if (requestId === baseRequestId) {
-      isLoading.value = false
+      isLoading.value = false;
     }
   }
 }
 
 async function focusCurrentItem(item: DirectoryItem) {
-  highlightedCurrentPath.value = item.path
-  previewError.value = null
+  highlightedCurrentPath.value = item.path;
+  previewError.value = null;
 
-  if (item.type !== 'directory') {
-    previewRequestId += 1
-    previewDirectoryPath.value = null
-    previewItems.value = []
-    previewLoading.value = false
-    selectedDirectory.value = isRootsView.value ? '' : currentPath.value
-    return
+  if (item.type !== "directory") {
+    previewRequestId += 1;
+    previewDirectoryPath.value = null;
+    previewItems.value = [];
+    previewLoading.value = false;
+    selectedDirectory.value = isRootsView.value ? "" : currentPath.value;
+    return;
   }
 
-  const requestId = ++previewRequestId
-  previewLoading.value = true
-  previewDirectoryPath.value = item.path
-  selectedDirectory.value = item.path
+  const requestId = ++previewRequestId;
+  previewLoading.value = true;
+  previewDirectoryPath.value = item.path;
+  selectedDirectory.value = item.path;
 
   try {
-    const result = await api.browseDirectory(item.path)
-    if (requestId !== previewRequestId) return
-    previewItems.value = result.items
+    const result = await api.browseDirectory(item.path);
+    if (requestId !== previewRequestId) return;
+    previewItems.value = result.items;
   } catch (err: any) {
-    if (requestId !== previewRequestId) return
-    previewItems.value = []
-    previewError.value = err?.message || '无法读取该目录的内容'
+    if (requestId !== previewRequestId) return;
+    previewItems.value = [];
+    previewError.value = err?.message || "无法读取该目录的内容";
   } finally {
     if (requestId === previewRequestId) {
-      previewLoading.value = false
+      previewLoading.value = false;
     }
   }
 }
 
 function enterDirectory(item: DirectoryItem) {
-  if (item.type !== 'directory') return
-  loadBaseDirectory(item.path, { preserveStateOnError: true })
+  if (item.type !== "directory") return;
+  loadBaseDirectory(item.path, { preserveStateOnError: true });
 }
 
 function navigateHome() {
-  loadBaseDirectory(getHomeTarget(), { preserveStateOnError: true })
+  loadBaseDirectory(getHomeTarget(), { preserveStateOnError: true });
 }
 
 function navigateUp() {
-  if (!parentPath.value) return
-  loadBaseDirectory(parentPath.value, { preserveStateOnError: true })
+  if (!parentPath.value) return;
+  loadBaseDirectory(parentPath.value, { preserveStateOnError: true });
 }
 
 function selectParentItem(item: DirectoryItem) {
-  loadBaseDirectory(item.path, { preserveStateOnError: true })
+  loadBaseDirectory(item.path, { preserveStateOnError: true });
 }
 
 function handleOverlayClick(event: MouseEvent) {
-  if ((event.target as HTMLElement).classList.contains('modal-overlay')) {
-    cancel()
+  if ((event.target as HTMLElement).classList.contains("modal-overlay")) {
+    cancel();
   }
 }
 
 function confirm() {
-  if (!canConfirm.value) return
-  emit('select', selectedDirectory.value)
+  if (!canConfirm.value) return;
+  emit("select", selectedDirectory.value);
 }
 
 function cancel() {
-  emit('cancel')
+  emit("cancel");
 }
 
 function normalizeAddressInput(input: string): string | null {
-  const trimmed = input.trim()
-  if (!trimmed) return null
-  if (trimmed === ROOTS_LABEL || trimmed === ROOTS_VIEW) return ROOTS_VIEW
-  if (/^[a-z]:$/i.test(trimmed)) return `${trimmed}\\`
-  return trimmed
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  if (trimmed === ROOTS_LABEL || trimmed === ROOTS_VIEW) return ROOTS_VIEW;
+  if (/^[a-z]:$/i.test(trimmed)) return `${trimmed}\\`;
+  return trimmed;
 }
 
 function isAbsoluteOrSpecialPath(input: string): boolean {
   return (
     input === ROOTS_VIEW ||
-    input === '~' ||
-    input.startsWith('~/') ||
-    input.startsWith('/') ||
-    input.startsWith('\\\\') ||
-    input.startsWith('//') ||
+    input === "~" ||
+    input.startsWith("~/") ||
+    input.startsWith("/") ||
+    input.startsWith("\\\\") ||
+    input.startsWith("//") ||
     /^[a-z]:([\\/]|$)/i.test(input)
-  )
+  );
 }
 
 function goToAddress() {
-  const requested = normalizeAddressInput(addressInput.value)
+  const requested = normalizeAddressInput(addressInput.value);
   if (!requested) {
-    syncAddressInput(currentKind.value, currentPath.value)
-    return
+    syncAddressInput(currentKind.value, currentPath.value);
+    return;
   }
 
   if (!isAbsoluteOrSpecialPath(requested)) {
-    error.value = '请输入绝对路径，例如 D:\\repo、\\\\server\\share 或 ~'
-    return
+    error.value = "请输入绝对路径，例如 D:\\repo、\\\\server\\share 或 ~";
+    return;
   }
 
-  loadBaseDirectory(requested, { preserveStateOnError: true })
+  loadBaseDirectory(requested, { preserveStateOnError: true });
 }
 
 function handleKeydown(event: KeyboardEvent) {
-  if (!props.visible) return
-  if (event.key === 'Escape') {
-    cancel()
-    return
+  if (!props.visible) return;
+  if (event.key === "Escape") {
+    cancel();
+    return;
   }
 
-  const target = event.target as HTMLElement | null
-  if (target?.closest('input, textarea')) {
-    return
+  const target = event.target as HTMLElement | null;
+  if (target?.closest("input, textarea")) {
+    return;
   }
 
-  if (event.key === 'Enter' && canConfirm.value) {
-    event.preventDefault()
-    confirm()
+  if (event.key === "Enter" && canConfirm.value) {
+    event.preventDefault();
+    confirm();
   }
 }
 
 function getDisplayPath(path: string): string {
-  if (path === ROOTS_VIEW) return ROOTS_LABEL
-  return path || '~'
+  if (path === ROOTS_VIEW) return ROOTS_LABEL;
+  return path || "~";
 }
 
 function getColumnTitle(path: string | null, fallback: string): string {
-  if (!path) return fallback
-  if (path === ROOTS_VIEW) return ROOTS_LABEL
+  if (!path) return fallback;
+  if (path === ROOTS_VIEW) return ROOTS_LABEL;
 
-  const normalized = path.replace(/\\/g, '/')
-  const trimmed = normalized.endsWith('/') && normalized.length > 1 ? normalized.slice(0, -1) : normalized
-  const segments = trimmed.split('/').filter(Boolean)
+  const normalized = path.replace(/\\/g, "/");
+  const trimmed =
+    normalized.endsWith("/") && normalized.length > 1
+      ? normalized.slice(0, -1)
+      : normalized;
+  const segments = trimmed.split("/").filter(Boolean);
 
   if (segments.length === 0) {
-    return trimmed || fallback
+    return trimmed || fallback;
   }
 
-  const lastSegment = segments[segments.length - 1]
+  const lastSegment = segments[segments.length - 1];
   if (/^[a-z]:$/i.test(lastSegment)) {
-    return `${lastSegment}\\`
+    return `${lastSegment}\\`;
   }
-  return lastSegment
+  return lastSegment;
 }
 
 function formatSize(size?: number): string {
-  if (size === undefined) return ''
-  if (size < 1024) return `${size} B`
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
-  if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`
-  return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`
+  if (size === undefined) return "";
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  if (size < 1024 * 1024 * 1024)
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
 watch(
   () => props.visible,
   (visible) => {
-    if (!visible) return
-    resetBrowserState()
-    loadBaseDirectory(props.initialPath || '~', { allowFallback: true, preserveStateOnError: false })
+    if (!visible) return;
+    resetBrowserState();
+    loadBaseDirectory(props.initialPath || "~", {
+      allowFallback: true,
+      preserveStateOnError: false,
+    });
   },
-)
+);
 
 watch(filteredCurrentItems, (items) => {
-  if (!highlightedCurrentPath.value) return
+  if (!highlightedCurrentPath.value) return;
 
-  const stillVisible = items.some((item) => pathsEqual(item.path, highlightedCurrentPath.value))
+  const stillVisible = items.some((item) =>
+    pathsEqual(item.path, highlightedCurrentPath.value),
+  );
   if (!stillVisible) {
-    clearPreview()
+    clearPreview();
   }
-})
+});
 
 onMounted(() => {
-  document.addEventListener('keydown', handleKeydown)
-})
+  document.addEventListener("keydown", handleKeydown);
+});
 
 onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeydown)
-})
+  document.removeEventListener("keydown", handleKeydown);
+});
 </script>
 
 <template>
   <Teleport to="body">
-    <div v-if="visible" class="modal-overlay" @click="handleOverlayClick">
+    <div
+      v-if="visible"
+      class="modal-overlay directory-browser-overlay"
+      @click="handleOverlayClick"
+    >
       <div class="modal directory-browser-modal">
         <div class="modal-header">
           <div class="header-copy">
             <h2 class="modal-title">选择工作目录</h2>
-            <p class="modal-subtitle">支持跨盘切换、地址栏直达，以及三栏目录预览。</p>
+            <p class="modal-subtitle">
+              支持跨盘切换、地址栏直达，以及三栏目录预览。
+            </p>
           </div>
-          <button class="btn btn-ghost btn-icon sm" @click="cancel" aria-label="关闭目录选择器">
+          <button
+            class="btn btn-ghost btn-icon sm"
+            @click="cancel"
+            aria-label="关闭目录选择器"
+          >
             <X :size="18" />
           </button>
         </div>
 
         <div class="directory-toolbar">
           <div class="toolbar-actions">
-            <button class="toolbar-btn" @click="navigateHome" :title="shouldUseRootsHome ? '显示盘符总览' : '返回主目录'">
+            <button
+              class="toolbar-btn"
+              @click="navigateHome"
+              :title="shouldUseRootsHome ? '显示盘符总览' : '返回主目录'"
+            >
               <Home :size="16" />
             </button>
-            <button class="toolbar-btn" @click="navigateUp" :disabled="!parentPath" title="返回上一级">
+            <button
+              class="toolbar-btn"
+              @click="navigateUp"
+              :disabled="!parentPath"
+              title="返回上一级"
+            >
               <ChevronUp :size="16" />
             </button>
           </div>
@@ -410,13 +450,19 @@ onUnmounted(() => {
               v-model="addressInput"
               type="text"
               spellcheck="false"
-              :placeholder="isRootsView ? ROOTS_LABEL : '输入绝对路径，按 Enter 跳转'"
+              :placeholder="
+                isRootsView ? ROOTS_LABEL : '输入绝对路径，按 Enter 跳转'
+              "
             />
           </form>
 
           <label class="search-field">
             <Search :size="16" />
-            <input v-model="filterText" type="text" placeholder="过滤当前已加载内容" />
+            <input
+              v-model="filterText"
+              type="text"
+              placeholder="过滤当前已加载内容"
+            />
           </label>
         </div>
 
@@ -426,17 +472,26 @@ onUnmounted(() => {
             <span>正在加载目录结构...</span>
           </div>
 
-          <div v-else-if="error && !hasLoadedDirectory" class="browser-state error">
+          <div
+            v-else-if="error && !hasLoadedDirectory"
+            class="browser-state error"
+          >
             <AlertCircle :size="24" />
             <span>{{ error }}</span>
-            <button class="btn btn-secondary btn-sm" @click="navigateHome">返回可访问位置</button>
+            <button class="btn btn-secondary btn-sm" @click="navigateHome">
+              返回可访问位置
+            </button>
           </div>
 
           <div v-else class="browser-shell">
-            <div v-if="error || isLoading" class="browser-banner" :class="{ error: !!error }">
+            <div
+              v-if="error || isLoading"
+              class="browser-banner"
+              :class="{ error: !!error }"
+            >
               <Loader2 v-if="isLoading && !error" :size="16" class="spin" />
               <AlertCircle v-else-if="error" :size="16" />
-              <span>{{ error || '正在加载新目录...' }}</span>
+              <span>{{ error || "正在加载新目录..." }}</span>
             </div>
 
             <div class="browser-columns">
@@ -444,11 +499,14 @@ onUnmounted(() => {
                 <header class="column-header">
                   <span class="column-label">父级目录</span>
                   <span class="column-path" :title="parentPath || currentPath">
-                    {{ getColumnTitle(parentPath, 'Root') }}
+                    {{ getColumnTitle(parentPath, "Root") }}
                   </span>
                 </header>
 
-                <div v-if="filteredParentItems.length === 0" class="column-empty">
+                <div
+                  v-if="filteredParentItems.length === 0"
+                  class="column-empty"
+                >
                   <Folder :size="18" />
                   <span>{{ parentColumnEmptyText }}</span>
                 </div>
@@ -470,12 +528,18 @@ onUnmounted(() => {
               <section class="browser-column browser-column-current">
                 <header class="column-header">
                   <span class="column-label">{{ currentColumnLabel }}</span>
-                  <span class="column-path" :title="getDisplayPath(currentPath)">
+                  <span
+                    class="column-path"
+                    :title="getDisplayPath(currentPath)"
+                  >
                     {{ getColumnTitle(currentPath, currentColumnLabel) }}
                   </span>
                 </header>
 
-                <div v-if="filteredCurrentItems.length === 0" class="column-empty">
+                <div
+                  v-if="filteredCurrentItems.length === 0"
+                  class="column-empty"
+                >
                   <Folder :size="18" />
                   <span>{{ currentColumnEmptyText }}</span>
                 </div>
@@ -491,16 +555,31 @@ onUnmounted(() => {
                       file: item.type === 'file',
                     }"
                     @click="focusCurrentItem(item)"
-                    @dblclick="item.type === 'directory' && enterDirectory(item)"
+                    @dblclick="
+                      item.type === 'directory' && enterDirectory(item)
+                    "
                   >
-                    <component :is="item.type === 'directory' ? Folder : File" :size="16" class="entry-icon" />
+                    <component
+                      :is="item.type === 'directory' ? Folder : File"
+                      :size="16"
+                      class="entry-icon"
+                    />
                     <div class="entry-main">
                       <span class="entry-name">{{ item.name }}</span>
-                      <span v-if="item.type === 'file' && item.size !== undefined" class="entry-meta">
+                      <span
+                        v-if="item.type === 'file' && item.size !== undefined"
+                        class="entry-meta"
+                      >
                         {{ formatSize(item.size) }}
                       </span>
-                      <span v-else-if="isRootsView" class="entry-meta">盘符</span>
-                      <span v-else-if="item.type === 'directory'" class="entry-meta">目录</span>
+                      <span v-else-if="isRootsView" class="entry-meta"
+                        >盘符</span
+                      >
+                      <span
+                        v-else-if="item.type === 'directory'"
+                        class="entry-meta"
+                        >目录</span
+                      >
                     </div>
                     <button
                       v-if="item.type === 'directory'"
@@ -518,7 +597,7 @@ onUnmounted(() => {
                 <header class="column-header">
                   <span class="column-label">下一层预览</span>
                   <span class="column-path" :title="previewDirectoryPath || ''">
-                    {{ getColumnTitle(previewDirectoryPath, 'Preview') }}
+                    {{ getColumnTitle(previewDirectoryPath, "Preview") }}
                   </span>
                 </header>
 
@@ -537,20 +616,38 @@ onUnmounted(() => {
                   <span>点击中栏目录或盘符后，这里会显示它的内容</span>
                 </div>
 
-                <div v-else-if="filteredPreviewItems.length === 0" class="column-empty">
+                <div
+                  v-else-if="filteredPreviewItems.length === 0"
+                  class="column-empty"
+                >
                   <Folder :size="18" />
                   <span>该位置为空，或没有匹配的内容</span>
                 </div>
 
                 <div v-else class="column-list">
-                  <div v-for="item in filteredPreviewItems" :key="item.path" class="entry-row preview-row">
-                    <component :is="item.type === 'directory' ? Folder : File" :size="16" class="entry-icon" />
+                  <div
+                    v-for="item in filteredPreviewItems"
+                    :key="item.path"
+                    class="entry-row preview-row"
+                  >
+                    <component
+                      :is="item.type === 'directory' ? Folder : File"
+                      :size="16"
+                      class="entry-icon"
+                    />
                     <div class="entry-main">
                       <span class="entry-name">{{ item.name }}</span>
-                      <span v-if="item.type === 'file' && item.size !== undefined" class="entry-meta">
+                      <span
+                        v-if="item.type === 'file' && item.size !== undefined"
+                        class="entry-meta"
+                      >
                         {{ formatSize(item.size) }}
                       </span>
-                      <span v-else-if="item.type === 'directory'" class="entry-meta">目录</span>
+                      <span
+                        v-else-if="item.type === 'directory'"
+                        class="entry-meta"
+                        >目录</span
+                      >
                     </div>
                   </div>
                 </div>
@@ -569,7 +666,11 @@ onUnmounted(() => {
 
           <div class="footer-actions">
             <button class="btn btn-secondary" @click="cancel">取消</button>
-            <button class="btn btn-primary" @click="confirm" :disabled="!canConfirm">
+            <button
+              class="btn btn-primary"
+              @click="confirm"
+              :disabled="!canConfirm"
+            >
               选择此目录
             </button>
           </div>
@@ -586,6 +687,11 @@ onUnmounted(() => {
   max-height: 78vh;
   display: flex;
   flex-direction: column;
+  z-index: 999;
+}
+
+.directory-browser-overlay {
+  z-index: 1200;
 }
 
 .header-copy {
@@ -605,8 +711,11 @@ onUnmounted(() => {
   grid-template-columns: auto minmax(0, 1fr) minmax(240px, 320px);
   gap: var(--space-md);
   padding: var(--space-md) var(--space-lg);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 85%, white 15%) 0%, var(--bg-secondary) 100%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-secondary) 85%, white 15%) 0%,
+    var(--bg-secondary) 100%
+  );
   border-bottom: 0.5px solid var(--border-subtle);
 }
 
@@ -623,7 +732,11 @@ onUnmounted(() => {
   justify-content: center;
   border: 0.5px solid var(--border-default);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--bg-elevated) 70%, var(--bg-secondary) 30%);
+  background: color-mix(
+    in srgb,
+    var(--bg-elevated) 70%,
+    var(--bg-secondary) 30%
+  );
   color: var(--text-secondary);
   cursor: pointer;
   transition:
@@ -656,7 +769,11 @@ onUnmounted(() => {
   padding: 0 var(--space-md);
   border: 0.5px solid var(--border-default);
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--bg-elevated) 76%, var(--bg-secondary) 24%);
+  background: color-mix(
+    in srgb,
+    var(--bg-elevated) 76%,
+    var(--bg-secondary) 24%
+  );
   color: var(--text-muted);
   box-shadow: var(--shadow-sm);
 }
@@ -711,14 +828,22 @@ onUnmounted(() => {
   padding: var(--space-sm) var(--space-md);
   border: 0.5px solid var(--border-default);
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--bg-secondary) 72%, var(--bg-elevated) 28%);
+  background: color-mix(
+    in srgb,
+    var(--bg-secondary) 72%,
+    var(--bg-elevated) 28%
+  );
   color: var(--text-secondary);
 }
 
 .browser-banner.error {
   color: var(--error);
   border-color: color-mix(in srgb, var(--error) 22%, var(--border-default));
-  background: color-mix(in srgb, var(--error-subtle) 60%, var(--bg-elevated) 40%);
+  background: color-mix(
+    in srgb,
+    var(--error-subtle) 60%,
+    var(--bg-elevated) 40%
+  );
 }
 
 .browser-state,
@@ -756,7 +881,10 @@ onUnmounted(() => {
   min-height: 0;
   overflow: hidden;
   display: grid;
-  grid-template-columns: minmax(220px, 0.95fr) minmax(300px, 1.15fr) minmax(260px, 1fr);
+  grid-template-columns: minmax(220px, 0.95fr) minmax(300px, 1.15fr) minmax(
+      260px,
+      1fr
+    );
   gap: var(--space-md);
 }
 
@@ -767,14 +895,13 @@ onUnmounted(() => {
   flex-direction: column;
   border: 0.5px solid var(--border-default);
   border-radius: var(--radius-xl);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-elevated) 88%, var(--bg-secondary) 12%) 0%, var(--bg-elevated) 100%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-elevated) 88%, var(--bg-secondary) 12%) 0%,
+    var(--bg-elevated) 100%
+  );
   box-shadow: var(--shadow-sm);
   overflow: hidden;
-}
-
-.browser-column-current {
-  box-shadow: var(--shadow-md);
 }
 
 .column-header {
@@ -783,7 +910,11 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 4px;
   border-bottom: 0.5px solid var(--border-subtle);
-  background: color-mix(in srgb, var(--bg-secondary) 60%, var(--bg-elevated) 40%);
+  background: color-mix(
+    in srgb,
+    var(--bg-secondary) 60%,
+    var(--bg-elevated) 40%
+  );
 }
 
 .column-label {
@@ -834,11 +965,19 @@ onUnmounted(() => {
 }
 
 .entry-row:hover {
-  background: color-mix(in srgb, var(--accent-subtle) 60%, var(--bg-secondary) 40%);
+  background: color-mix(
+    in srgb,
+    var(--accent-subtle) 60%,
+    var(--bg-secondary) 40%
+  );
 }
 
 .entry-row.active {
-  background: color-mix(in srgb, var(--accent-subtle) 90%, var(--bg-elevated) 10%);
+  background: color-mix(
+    in srgb,
+    var(--accent-subtle) 90%,
+    var(--bg-elevated) 10%
+  );
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
@@ -851,7 +990,11 @@ onUnmounted(() => {
 }
 
 .preview-row:hover {
-  background: color-mix(in srgb, var(--bg-secondary) 72%, var(--bg-elevated) 28%);
+  background: color-mix(
+    in srgb,
+    var(--bg-secondary) 72%,
+    var(--bg-elevated) 28%
+  );
 }
 
 .entry-icon {
@@ -901,7 +1044,11 @@ onUnmounted(() => {
 }
 
 .enter-btn:hover {
-  background: color-mix(in srgb, var(--bg-secondary) 70%, var(--bg-elevated) 30%);
+  background: color-mix(
+    in srgb,
+    var(--bg-secondary) 70%,
+    var(--bg-elevated) 30%
+  );
   color: var(--text-primary);
 }
 
@@ -993,5 +1140,3 @@ onUnmounted(() => {
   }
 }
 </style>
-
-

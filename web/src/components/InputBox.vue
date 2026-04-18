@@ -1,207 +1,243 @@
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
-import { Send, Square, Paperclip, X, FileText, ClipboardList, Plus, ChevronDown, Check, Server, Zap, Minimize2, ListTodo } from 'lucide-vue-next'
-import { useFileUpload } from '../composables/useFileUpload'
-import type { Provider, Message } from '../api/client'
+import { ref, watch, computed, onMounted, onUnmounted } from "vue";
+import {
+  Send,
+  Square,
+  Paperclip,
+  X,
+  FileText,
+  ClipboardList,
+  Plus,
+  ChevronDown,
+  Check,
+  Server,
+  Zap,
+  Minimize2,
+  ListTodo,
+} from "lucide-vue-next";
+import { useFileUpload } from "../composables/useFileUpload";
+import type { Provider, Message } from "../api/client";
+import { useLocale } from "../composables/useLocale";
 
 const props = defineProps<{
-  disabled: boolean
-  isStreaming: boolean
-  centered?: boolean
-  ensureSession?: () => Promise<string | null>
-  providers?: Provider[]
-  currentProvider?: string
-  currentModel?: string
-  mode?: 'chat' | 'agent'
-  messages?: Message[]
-}>()
+  disabled: boolean;
+  isStreaming: boolean;
+  centered?: boolean;
+  ensureSession?: () => Promise<string | null>;
+  providers?: Provider[];
+  currentProvider?: string;
+  currentModel?: string;
+  mode?: "chat" | "agent";
+  messages?: Message[];
+}>();
 
 const emit = defineEmits<{
-  send: [content: string, files: Array<{ type: 'file'; mime: string; filename: string; url: string }>, planMode: boolean]
-  abort: []
-  'select-model': [providerId: string, modelId: string]
-  'open-mcp': []
-  'toggle-mcp-panel': []
-  'open-skills': []
-  'compress-session': []
-  'toggle-todo': []
-  'toggle-plan': []
-}>()
+  send: [
+    content: string,
+    files: Array<{ type: "file"; mime: string; filename: string; url: string }>,
+    planMode: boolean,
+  ];
+  abort: [];
+  "select-model": [providerId: string, modelId: string];
+  "open-mcp": [];
+  "toggle-mcp-panel": [];
+  "open-skills": [];
+  "compress-session": [];
+  "toggle-todo": [];
+  "toggle-plan": [];
+}>();
 
 // Plan Mode 状态
-const isPlanMode = ref(false)
+const isPlanMode = ref(false);
 
-const input = ref('')
-const textareaRef = ref<HTMLTextAreaElement>()
-const fileInputRef = ref<HTMLInputElement>()
-const isDragging = ref(false)
+const input = ref("");
+const textareaRef = ref<HTMLTextAreaElement>();
+const fileInputRef = ref<HTMLInputElement>();
+const isDragging = ref(false);
 
 // "+" Menu state
-const showPlusMenu = ref(false)
-const plusMenuRef = ref<HTMLElement>()
+const showPlusMenu = ref(false);
+const plusMenuRef = ref<HTMLElement>();
 
 // Model selector state
-const showModelDropdown = ref(false)
-const modelDropdownRef = ref<HTMLElement>()
+const showModelDropdown = ref(false);
+const modelDropdownRef = ref<HTMLElement>();
 
-const { attachments, uploadError, addFiles, removeFile, clearAll, clearError, toMessageParts } = useFileUpload({
-  ensureSessionId: async () => await props.ensureSession?.() ?? null
-})
+const {
+  attachments,
+  uploadError,
+  addFiles,
+  removeFile,
+  clearAll,
+  clearError,
+  toMessageParts,
+} = useFileUpload({
+  ensureSessionId: async () => (await props.ensureSession?.()) ?? null,
+});
+const { t } = useLocale();
 
 // Can send if there is content and every attachment is ready
 const canSend = computed(() => {
-  const hasText = input.value.trim().length > 0
-  const hasAttachments = attachments.value.length > 0
-  const allAttachmentsReady = attachments.value.every(a => a.status === 'ready')
-  return (hasText || hasAttachments) && allAttachmentsReady && !props.disabled
-})
+  const hasText = input.value.trim().length > 0;
+  const hasAttachments = attachments.value.length > 0;
+  const allAttachmentsReady = attachments.value.every(
+    (a) => a.status === "ready",
+  );
+  return (hasText || hasAttachments) && allAttachmentsReady && !props.disabled;
+});
 
 function getCurrentModelName(): string {
   if (props.currentProvider && props.providers) {
-    const provider = props.providers.find(p => p.id === props.currentProvider)
+    const provider = props.providers.find(
+      (p) => p.id === props.currentProvider,
+    );
     if (provider) {
-      const model = provider.models.find(m => m.id === props.currentModel)
-      if (model) return model.name || model.id
+      const model = provider.models.find((m) => m.id === props.currentModel);
+      if (model) return model.name || model.id;
     }
   }
   if (props.providers) {
     for (const provider of props.providers) {
-      const model = provider.models.find(m => m.id === props.currentModel)
-      if (model) return model.name || model.id
+      const model = provider.models.find((m) => m.id === props.currentModel);
+      if (model) return model.name || model.id;
     }
   }
-  return props.currentModel || '选择模型'
+  return props.currentModel || t("input.chooseModel");
 }
 
 function selectModel(providerId: string, modelId: string) {
-  emit('select-model', providerId, modelId)
-  showModelDropdown.value = false
+  emit("select-model", providerId, modelId);
+  showModelDropdown.value = false;
 }
 
 function handleSend() {
-  if (!canSend.value) return
+  if (!canSend.value) return;
 
-  const content = input.value.trim()
-  const fileParts = toMessageParts()
+  const content = input.value.trim();
+  const fileParts = toMessageParts();
 
-  emit('send', content, fileParts, isPlanMode.value)
-  input.value = ''
-  clearAll()
-  isPlanMode.value = false
+  emit("send", content, fileParts, isPlanMode.value);
+  input.value = "";
+  clearAll();
+  isPlanMode.value = false;
 
   if (textareaRef.value) {
-    textareaRef.value.style.height = 'auto'
+    textareaRef.value.style.height = "auto";
   }
 }
 
 function togglePlanMode() {
-  isPlanMode.value = !isPlanMode.value
-  showPlusMenu.value = false
+  isPlanMode.value = !isPlanMode.value;
+  showPlusMenu.value = false;
 }
 
 function handleKeydown(e: KeyboardEvent) {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault()
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
     if (props.isStreaming) {
-      emit('abort')
+      emit("abort");
     } else {
-      handleSend()
+      handleSend();
     }
   }
 }
 
 function adjustHeight() {
   if (textareaRef.value) {
-    textareaRef.value.style.height = 'auto'
-    textareaRef.value.style.height = Math.min(textareaRef.value.scrollHeight, 200) + 'px'
+    textareaRef.value.style.height = "auto";
+    textareaRef.value.style.height =
+      Math.min(textareaRef.value.scrollHeight, 200) + "px";
   }
 }
 
-watch(input, adjustHeight)
+watch(input, adjustHeight);
 
 // File upload handlers
 function handleFileSelect() {
-  showPlusMenu.value = false
-  fileInputRef.value?.click()
+  showPlusMenu.value = false;
+  fileInputRef.value?.click();
 }
 
 function handleFileChange(e: Event) {
-  const target = e.target as HTMLInputElement
+  const target = e.target as HTMLInputElement;
   if (target.files) {
-    clearError()
-    void addFiles(target.files)
-    target.value = ''
+    clearError();
+    void addFiles(target.files);
+    target.value = "";
   }
 }
 
 function handleDrop(e: DragEvent) {
-  e.preventDefault()
-  isDragging.value = false
+  e.preventDefault();
+  isDragging.value = false;
   if (e.dataTransfer?.files) {
-    clearError()
-    void addFiles(e.dataTransfer.files)
+    clearError();
+    void addFiles(e.dataTransfer.files);
   }
 }
 
 function handleDragOver(e: DragEvent) {
-  e.preventDefault()
-  isDragging.value = true
+  e.preventDefault();
+  isDragging.value = true;
 }
 
 function handleDragLeave(e: DragEvent) {
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-  const x = e.clientX
-  const y = e.clientY
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  const x = e.clientX;
+  const y = e.clientY;
   if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
-    isDragging.value = false
+    isDragging.value = false;
   }
 }
 
 // Paste handler for images
 function handlePaste(e: ClipboardEvent) {
-  const items = e.clipboardData?.items
-  if (!items) return
+  const items = e.clipboardData?.items;
+  if (!items) return;
 
-  const imageFiles: File[] = []
+  const imageFiles: File[] = [];
   for (const item of items) {
-    if (item.type.startsWith('image/')) {
-      const file = item.getAsFile()
+    if (item.type.startsWith("image/")) {
+      const file = item.getAsFile();
       if (file) {
-        imageFiles.push(file)
+        imageFiles.push(file);
       }
     }
   }
 
   if (imageFiles.length > 0) {
-    e.preventDefault()
-    clearError()
-    void addFiles(imageFiles)
+    e.preventDefault();
+    clearError();
+    void addFiles(imageFiles);
   }
 }
 
 // Click outside handlers
 function handleClickOutside(e: MouseEvent) {
   if (plusMenuRef.value && !plusMenuRef.value.contains(e.target as Node)) {
-    showPlusMenu.value = false
+    showPlusMenu.value = false;
   }
-  if (modelDropdownRef.value && !modelDropdownRef.value.contains(e.target as Node)) {
-    showModelDropdown.value = false
+  if (
+    modelDropdownRef.value &&
+    !modelDropdownRef.value.contains(e.target as Node)
+  ) {
+    showModelDropdown.value = false;
   }
 }
 
 onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-})
+  document.addEventListener("click", handleClickOutside);
+});
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
-})
+  document.removeEventListener("click", handleClickOutside);
+});
 
 // Format file size
 function formatSize(bytes: number): string {
-  if (bytes < 1024) return bytes + ' B'
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
-  return (bytes / 1024 / 1024).toFixed(1) + ' MB'
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / 1024 / 1024).toFixed(1) + " MB";
 }
 </script>
 
@@ -217,7 +253,7 @@ function formatSize(bytes: number): string {
     <div v-if="isDragging" class="drag-overlay">
       <div class="drag-content">
         <Paperclip :size="32" />
-        <span>Drop files here</span>
+        <span>{{ t("input.dropFiles") }}</span>
       </div>
     </div>
 
@@ -228,9 +264,14 @@ function formatSize(bytes: number): string {
           v-for="file in attachments"
           :key="file.id"
           class="attachment-chip"
-          :class="{ 'error': file.status === 'error' }"
+          :class="{ error: file.status === 'error' }"
         >
-          <img v-if="file.preview" :src="file.preview" :alt="file.filename" class="attachment-thumb" />
+          <img
+            v-if="file.preview"
+            :src="file.preview"
+            :alt="file.filename"
+            class="attachment-thumb"
+          />
           <div v-else class="attachment-icon">
             <FileText :size="16" />
           </div>
@@ -238,10 +279,26 @@ function formatSize(bytes: number): string {
             <span class="attachment-name">{{ file.filename }}</span>
             <span class="attachment-size">{{ formatSize(file.size) }}</span>
           </div>
-          <span v-if="file.status === 'selected'" class="attachment-status processing">队列中</span>
-          <span v-else-if="file.status === 'uploading'" class="attachment-status processing">{{ file.progress }}%</span>
-          <span v-else-if="file.status === 'error'" class="attachment-status error">!</span>
-          <button @click.stop="removeFile(file.id)" class="attachment-remove" title="Remove">
+          <span
+            v-if="file.status === 'selected'"
+            class="attachment-status processing"
+            >{{ t("input.queued") }}</span
+          >
+          <span
+            v-else-if="file.status === 'uploading'"
+            class="attachment-status processing"
+            >{{ file.progress }}%</span
+          >
+          <span
+            v-else-if="file.status === 'error'"
+            class="attachment-status error"
+            >!</span
+          >
+          <button
+            @click.stop="removeFile(file.id)"
+            class="attachment-remove"
+            :title="t('common.remove')"
+          >
             <X :size="14" />
           </button>
         </div>
@@ -255,14 +312,21 @@ function formatSize(bytes: number): string {
     <!-- Plan Mode 指示器 -->
     <div v-if="isPlanMode" class="plan-mode-indicator">
       <ClipboardList :size="14" />
-      <span>规划模式已启用 - AI 将先制定计划再执行</span>
-      <button class="plan-mode-close" @click="isPlanMode = false" title="关闭规划模式">
+      <span>{{ t("input.planModeHint") }}</span>
+      <button
+        class="plan-mode-close"
+        @click="isPlanMode = false"
+        :title="t('input.planModeClose')"
+      >
         <X :size="14" />
       </button>
     </div>
 
     <!-- Input Box -->
-    <div class="input-glass-wrapper" :class="{ 'plan-mode-active': isPlanMode }">
+    <div
+      class="input-glass-wrapper"
+      :class="{ 'plan-mode-active': isPlanMode }"
+    >
       <!-- Hidden file input -->
       <input
         ref="fileInputRef"
@@ -278,7 +342,11 @@ function formatSize(bytes: number): string {
           ref="textareaRef"
           v-model="input"
           :disabled="disabled && !isStreaming"
-          :placeholder="isStreaming ? '按 Enter 停止响应...' : 'How can I help you today?'"
+          :placeholder="
+            isStreaming
+              ? t('input.streamingPlaceholder')
+              : t('input.placeholder')
+          "
           rows="1"
           @keydown="handleKeydown"
           @paste="handlePaste"
@@ -295,7 +363,7 @@ function formatSize(bytes: number): string {
               class="toolbar-btn plus-btn"
               @click.stop="showPlusMenu = !showPlusMenu"
               :disabled="disabled && !isStreaming"
-              title="Add files, connectors, and more"
+              :title="t('input.add')"
             >
               <Plus :size="18" />
             </button>
@@ -303,27 +371,49 @@ function formatSize(bytes: number): string {
             <div v-if="showPlusMenu" class="plus-dropdown">
               <button class="plus-menu-item" @click="handleFileSelect">
                 <Paperclip :size="16" />
-                <span>Add files or photos</span>
+                <span>{{ t("input.addFiles") }}</span>
               </button>
               <div class="plus-menu-divider"></div>
-              <button class="plus-menu-item" @click="showPlusMenu = false; emit('toggle-mcp-panel')">
+              <button
+                class="plus-menu-item"
+                @click="
+                  showPlusMenu = false;
+                  emit('toggle-mcp-panel');
+                "
+              >
                 <Server :size="16" />
-                <span>MCP Servers</span>
+                <span>{{ t("input.mcp") }}</span>
               </button>
-              <button class="plus-menu-item" @click="showPlusMenu = false; emit('open-skills')">
+              <button
+                class="plus-menu-item"
+                @click="
+                  showPlusMenu = false;
+                  emit('open-skills');
+                "
+              >
                 <Zap :size="16" />
-                <span>Skills</span>
+                <span>{{ t("input.skills") }}</span>
               </button>
               <div class="plus-menu-divider"></div>
-              <button class="plus-menu-item" @click="showPlusMenu = false; emit('compress-session')">
+              <button
+                class="plus-menu-item"
+                @click="
+                  showPlusMenu = false;
+                  emit('compress-session');
+                "
+              >
                 <Minimize2 :size="16" />
-                <span>Compress session</span>
+                <span>{{ t("input.compress") }}</span>
               </button>
               <template v-if="mode === 'agent'">
                 <div class="plus-menu-divider"></div>
-                <button class="plus-menu-item" :class="{ active: isPlanMode }" @click="togglePlanMode">
+                <button
+                  class="plus-menu-item"
+                  :class="{ active: isPlanMode }"
+                  @click="togglePlanMode"
+                >
                   <ClipboardList :size="16" />
-                  <span>Plan mode</span>
+                  <span>{{ t("input.planMode") }}</span>
                   <span v-if="isPlanMode" class="plus-menu-check">
                     <Check :size="14" />
                   </span>
@@ -336,7 +426,7 @@ function formatSize(bytes: number): string {
           <button
             class="toolbar-btn icon-btn"
             @click="emit('toggle-plan')"
-            title="View plan"
+            :title="t('input.viewPlan')"
           >
             <ClipboardList :size="18" />
           </button>
@@ -345,7 +435,7 @@ function formatSize(bytes: number): string {
           <button
             class="toolbar-btn icon-btn"
             @click="emit('toggle-todo')"
-            title="Todo list"
+            :title="t('input.todo')"
           >
             <ListTodo :size="18" />
           </button>
@@ -354,27 +444,49 @@ function formatSize(bytes: number): string {
         <!-- Right: Model selector + Send -->
         <div class="toolbar-right">
           <!-- Model Selector -->
-          <div class="model-selector-inline" ref="modelDropdownRef" v-if="providers && providers.length > 0">
+          <div
+            class="model-selector-inline"
+            ref="modelDropdownRef"
+            v-if="providers && providers.length > 0"
+          >
             <button
               class="model-trigger-inline"
               @click.stop="showModelDropdown = !showModelDropdown"
             >
               <span class="model-name-inline">{{ getCurrentModelName() }}</span>
-              <ChevronDown :size="12" class="model-chevron" :class="{ open: showModelDropdown }" />
+              <ChevronDown
+                :size="12"
+                class="model-chevron"
+                :class="{ open: showModelDropdown }"
+              />
             </button>
             <!-- Model Dropdown -->
             <div v-if="showModelDropdown" class="model-dropdown">
-              <template v-for="provider in providers.filter(p => p.authenticated)" :key="provider.id">
+              <template
+                v-for="provider in providers.filter((p) => p.authenticated)"
+                :key="provider.id"
+              >
                 <div class="model-dropdown-label">{{ provider.name }}</div>
                 <button
                   v-for="model in provider.models"
                   :key="model.id"
                   class="model-dropdown-item"
-                  :class="{ active: currentProvider === provider.id && currentModel === model.id }"
+                  :class="{
+                    active:
+                      currentProvider === provider.id &&
+                      currentModel === model.id,
+                  }"
                   @click="selectModel(provider.id, model.id)"
                 >
                   <span>{{ model.name || model.id }}</span>
-                  <Check v-if="currentProvider === provider.id && currentModel === model.id" :size="14" class="check-icon" />
+                  <Check
+                    v-if="
+                      currentProvider === provider.id &&
+                      currentModel === model.id
+                    "
+                    :size="14"
+                    class="check-icon"
+                  />
                 </button>
               </template>
             </div>
@@ -386,7 +498,7 @@ function formatSize(bytes: number): string {
             :class="isStreaming ? 'abort-btn' : 'send-btn'"
             :disabled="(!canSend && !isStreaming) || (disabled && !isStreaming)"
             @click="isStreaming ? emit('abort') : handleSend()"
-            :title="isStreaming ? '停止' : '发送'"
+            :title="isStreaming ? t('input.stop') : t('input.send')"
           >
             <Square v-if="isStreaming" :size="16" fill="currentColor" />
             <Send v-else :size="18" />
@@ -397,7 +509,7 @@ function formatSize(bytes: number): string {
 
     <div class="input-footer">
       <div class="input-hint text-xs text-muted">
-        TopViewbot may display inaccurate info, including about people, so double-check its responses.
+        {{ t("input.disclaimer") }}
       </div>
     </div>
   </div>
@@ -406,14 +518,14 @@ function formatSize(bytes: number): string {
 <style scoped>
 .input-container {
   width: 100%;
-  max-width: var(--input-max-width);
+  max-width: 860px;
   margin: 0 auto;
   position: relative;
   padding: 0;
 }
 
 .input-container.centered {
-  max-width: var(--input-max-width);
+  max-width: 860px;
 }
 
 /* Drag overlay */
@@ -550,32 +662,37 @@ function formatSize(bytes: number): string {
 /* === Input Box === */
 .input-glass-wrapper {
   position: relative;
-  border-radius: var(--radius-2xl);
-  background: var(--bg-composer);
-  border: 1px solid var(--input-border-color);
-  box-shadow: var(--input-shadow);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  border-radius: var(--radius-xl);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-default);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
   display: flex;
   flex-direction: column;
 }
 
 .input-glass-wrapper:hover {
-  border-color: var(--input-border-color-hover);
+  border-color: var(--border-hover);
 }
 
 .input-glass-wrapper:focus-within {
-  border-color: var(--input-border-color-hover);
-  box-shadow: var(--input-shadow), 0 0 0 1px var(--input-border-color-hover);
+  border-color: var(--accent);
+  box-shadow:
+    var(--shadow-md),
+    0 0 0 1px var(--accent);
 }
 
 .input-glass-wrapper.plan-mode-active {
   border-color: var(--accent);
-  box-shadow: var(--input-shadow), 0 0 0 1px var(--accent);
+  box-shadow:
+    var(--input-shadow),
+    0 0 0 1px var(--accent);
 }
 
 /* Textarea area */
 .input-textarea-area {
-  padding: 14px 16px 0;
+  padding: 16px 18px 10px;
 }
 
 .custom-textarea {
@@ -585,9 +702,9 @@ function formatSize(bytes: number): string {
   outline: none;
   resize: none;
   color: var(--text-primary);
-  font-family: var(--font-serif);
-  font-size: 16px;
-  font-weight: 400;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 500;
   line-height: 1.5;
   max-height: 200px;
   min-height: 28px;
@@ -603,7 +720,11 @@ function formatSize(bytes: number): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 10px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  border-bottom-left-radius: var(--radius-xl);
+  border-bottom-right-radius: var(--radius-xl);
 }
 
 .toolbar-left {
@@ -625,9 +746,16 @@ function formatSize(bytes: number): string {
   width: 32px;
   height: 32px;
   border-radius: var(--radius-sm);
-  border: none;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all var(--transition-fast);
+}
+
+.toolbar-btn:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 /* Plus (+) button - Attachment style */
@@ -656,6 +784,7 @@ function formatSize(bytes: number): string {
 .icon-btn {
   background: transparent;
   color: var(--text-muted);
+  border-color: transparent;
 }
 
 .icon-btn:hover {
@@ -875,6 +1004,7 @@ function formatSize(bytes: number): string {
   background: var(--accent);
   color: white;
   border-radius: var(--radius-lg);
+  border: none;
 }
 
 .send-btn:hover:not(:disabled) {

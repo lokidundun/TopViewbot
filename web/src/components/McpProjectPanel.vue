@@ -1,47 +1,47 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { X, Server, Loader2, Plug, Unplug, Plus } from 'lucide-vue-next'
-import { mcpApi } from '../api/client'
-import type { McpServer, McpConfig } from '../api/client'
-import { authenticateMcpWithPopup } from '../utils/mcp-auth'
+import { ref, onMounted } from "vue";
+import { X, Server, Loader2, Plug, Unplug, Plus } from "lucide-vue-next";
+import { mcpApi } from "../api/client";
+import type { McpServer, McpConfig } from "../api/client";
+import { authenticateMcpWithPopup } from "../utils/mcp-auth";
 
 defineProps<{
-  currentDirectory?: string
-}>()
+  currentDirectory?: string;
+}>();
 
 const emit = defineEmits<{
-  close: []
-}>()
+  close: [];
+}>();
 
-const servers = ref<McpServer[]>([])
-const loading = ref(false)
+const servers = ref<McpServer[]>([]);
+const loading = ref(false);
 
 // Add form state
-const showAddForm = ref(false)
-const formName = ref('')
-const formType = ref<'local' | 'remote'>('local')
-const formCommand = ref('')
-const formUrl = ref('')
-const formError = ref('')
-const isSubmitting = ref(false)
+const showAddForm = ref(false);
+const formName = ref("");
+const formType = ref<"local" | "remote">("local");
+const formCommand = ref("");
+const formUrl = ref("");
+const formError = ref("");
+const isSubmitting = ref(false);
 
 async function loadServers() {
-  loading.value = true
+  loading.value = true;
   try {
-    servers.value = await mcpApi.list()
+    servers.value = await mcpApi.list();
   } catch (e) {
-    console.error('Failed to load MCP servers:', e)
+    console.error("Failed to load MCP servers:", e);
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 
 async function connectServer(name: string) {
   try {
-    await mcpApi.connect(name)
-    await loadServers()
+    await mcpApi.connect(name);
+    await loadServers();
   } catch (e) {
-    console.error('Failed to connect MCP server:', e)
+    console.error("Failed to connect MCP server:", e);
   }
 }
 
@@ -49,115 +49,143 @@ async function authenticateServer(name: string) {
   try {
     await authenticateMcpWithPopup(name, {
       onUpdate: (next) => {
-        servers.value = next
+        servers.value = next;
       },
-    })
+    });
   } catch (e) {
-    console.error('Failed to authenticate MCP server:', e)
+    console.error("Failed to authenticate MCP server:", e);
   }
 }
 
 async function disconnectServer(name: string) {
   try {
-    await mcpApi.disconnect(name)
-    await loadServers()
+    await mcpApi.disconnect(name);
+    await loadServers();
   } catch (e) {
-    console.error('Failed to disconnect MCP server:', e)
+    console.error("Failed to disconnect MCP server:", e);
   }
 }
 
 function getStatusColor(status: string): string {
   switch (status) {
-    case 'connected': return 'var(--success)'
-    case 'connecting': return 'var(--warning, #f59e0b)'
-    case 'failed': return 'var(--error)'
-    default: return 'var(--text-muted)'
+    case "connected":
+      return "var(--success)";
+    case "connecting":
+      return "var(--warning, #f59e0b)";
+    case "failed":
+      return "var(--error)";
+    default:
+      return "var(--text-muted)";
   }
 }
 
 function getStatusText(status: string): string {
   switch (status) {
-    case 'connected': return 'Connected'
-    case 'connecting': return 'Connecting...'
-    case 'auth_in_progress': return 'Authorizing...'
-    case 'disabled': return 'Disconnected'
-    case 'failed': return 'Failed'
-    case 'needs_auth': return 'Auth Required'
-    case 'needs_client_registration': return 'Static Client Required'
-    default: return status
+    case "connected":
+      return "Connected";
+    case "connecting":
+      return "Connecting...";
+    case "auth_in_progress":
+      return "Authorizing...";
+    case "disabled":
+      return "Disconnected";
+    case "failed":
+      return "Failed";
+    case "needs_auth":
+      return "Auth Required";
+    case "needs_client_registration":
+      return "Static Client Required";
+    default:
+      return status;
   }
 }
 
 function canConnect(status: string): boolean {
-  return status === 'disabled' || status === 'failed'
+  return status === "disabled" || status === "failed";
 }
 
 // Parse command string to array
 function parseCommand(cmd: string): string[] {
-  const result: string[] = []
-  let current = ''
-  let inQuote = false
-  let quoteChar = ''
+  const result: string[] = [];
+  let current = "";
+  let inQuote = false;
+  let quoteChar = "";
 
   for (let i = 0; i < cmd.length; i++) {
-    const char = cmd[i]
+    const char = cmd[i];
     if ((char === '"' || char === "'") && !inQuote) {
-      inQuote = true
-      quoteChar = char
+      inQuote = true;
+      quoteChar = char;
     } else if (char === quoteChar && inQuote) {
-      inQuote = false
-      quoteChar = ''
-    } else if (char === ' ' && !inQuote) {
-      if (current) { result.push(current); current = '' }
+      inQuote = false;
+      quoteChar = "";
+    } else if (char === " " && !inQuote) {
+      if (current) {
+        result.push(current);
+        current = "";
+      }
     } else {
-      current += char
+      current += char;
     }
   }
-  if (current) result.push(current)
-  return result
+  if (current) result.push(current);
+  return result;
 }
 
 function resetForm() {
-  formName.value = ''
-  formType.value = 'local'
-  formCommand.value = ''
-  formUrl.value = ''
-  formError.value = ''
+  formName.value = "";
+  formType.value = "local";
+  formCommand.value = "";
+  formUrl.value = "";
+  formError.value = "";
 }
 
 function toggleAddForm() {
-  showAddForm.value = !showAddForm.value
-  if (!showAddForm.value) resetForm()
+  showAddForm.value = !showAddForm.value;
+  if (!showAddForm.value) resetForm();
 }
 
 async function submitAdd() {
-  formError.value = ''
-  if (!formName.value.trim()) { formError.value = '请输入名称'; return }
-
-  let config: McpConfig
-  if (formType.value === 'local') {
-    if (!formCommand.value.trim()) { formError.value = '请输入命令'; return }
-    config = { type: 'local', command: parseCommand(formCommand.value), enabled: true }
-  } else {
-    if (!formUrl.value.trim()) { formError.value = '请输入 URL'; return }
-    config = { type: 'remote', url: formUrl.value.trim(), enabled: true }
+  formError.value = "";
+  if (!formName.value.trim()) {
+    formError.value = "请输入名称";
+    return;
   }
 
-  isSubmitting.value = true
+  let config: McpConfig;
+  if (formType.value === "local") {
+    if (!formCommand.value.trim()) {
+      formError.value = "请输入命令";
+      return;
+    }
+    config = {
+      type: "local",
+      command: parseCommand(formCommand.value),
+      enabled: true,
+    };
+  } else {
+    if (!formUrl.value.trim()) {
+      formError.value = "请输入 URL";
+      return;
+    }
+    config = { type: "remote", url: formUrl.value.trim(), enabled: true };
+  }
+
+  isSubmitting.value = true;
   try {
-    await mcpApi.add(formName.value.trim(), config)
-    await mcpApi.connect(formName.value.trim())
-    await loadServers()
-    showAddForm.value = false
-    resetForm()
+    await mcpApi.add(formName.value.trim(), config);
+    await mcpApi.connect(formName.value.trim());
+    await loadServers();
+    showAddForm.value = false;
+    resetForm();
   } catch (e: any) {
-    formError.value = e.message || '添加失败'
+    formError.value = e.message || "添加失败";
   } finally {
-    isSubmitting.value = false
+    isSubmitting.value = false;
   }
 }
 
-onMounted(loadServers)
+onMounted(loadServers);
 </script>
 
 <template>
@@ -168,7 +196,11 @@ onMounted(loadServers)
         <span class="mcp-panel-title">MCP Servers</span>
       </div>
       <div class="mcp-panel-header-actions">
-        <button class="mcp-panel-btn" @click="toggleAddForm" :title="showAddForm ? '取消' : '添加服务器'">
+        <button
+          class="mcp-panel-btn"
+          @click="toggleAddForm"
+          :title="showAddForm ? '取消' : '添加服务器'"
+        >
           <Plus v-if="!showAddForm" :size="16" />
           <X v-else :size="16" />
         </button>
@@ -225,8 +257,12 @@ onMounted(loadServers)
       <div v-if="formError" class="mcp-form-error">{{ formError }}</div>
       <div class="mcp-form-actions">
         <button class="mcp-form-cancel" @click="toggleAddForm">取消</button>
-        <button class="mcp-form-submit" @click="submitAdd" :disabled="isSubmitting">
-          {{ isSubmitting ? '添加中...' : '添加并连接' }}
+        <button
+          class="mcp-form-submit"
+          @click="submitAdd"
+          :disabled="isSubmitting"
+        >
+          {{ isSubmitting ? "添加中..." : "添加并连接" }}
         </button>
       </div>
     </div>
@@ -240,17 +276,28 @@ onMounted(loadServers)
       <div v-else-if="servers.length === 0 && !showAddForm" class="mcp-empty">
         <Server :size="24" />
         <span>No MCP servers configured</span>
-        <p class="mcp-empty-hint">点击 "+" 添加服务器，或在 Settings → MCP 中管理</p>
+        <p class="mcp-empty-hint">
+          点击 "+" 添加服务器，或在 Settings → MCP 中管理
+        </p>
       </div>
 
       <div v-else class="mcp-server-list">
-        <div v-for="server in servers" :key="server.name" class="mcp-server-item">
+        <div
+          v-for="server in servers"
+          :key="server.name"
+          class="mcp-server-item"
+        >
           <div class="mcp-server-status">
-            <div class="status-dot" :style="{ background: getStatusColor(server.status) }"></div>
+            <div
+              class="status-dot"
+              :style="{ background: getStatusColor(server.status) }"
+            ></div>
           </div>
           <div class="mcp-server-info">
             <span class="mcp-server-name">{{ server.name }}</span>
-            <span class="mcp-server-status-text">{{ getStatusText(server.status) }}</span>
+            <span class="mcp-server-status-text">{{
+              getStatusText(server.status)
+            }}</span>
           </div>
           <div class="mcp-server-action">
             <button
@@ -277,7 +324,11 @@ onMounted(loadServers)
             >
               <Plug :size="14" />
             </button>
-            <Loader2 v-else-if="server.status === 'connecting'" :size="14" class="spin" />
+            <Loader2
+              v-else-if="server.status === 'connecting'"
+              :size="14"
+              class="spin"
+            />
           </div>
         </div>
       </div>
@@ -287,8 +338,8 @@ onMounted(loadServers)
 
 <style scoped>
 .mcp-project-panel {
-  background: var(--bg-elevated);
-  border: 0.5px solid var(--border-default);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   max-height: 480px;
@@ -299,8 +350,14 @@ onMounted(loadServers)
 }
 
 @keyframes panelIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .mcp-panel-header {
@@ -308,7 +365,8 @@ onMounted(loadServers)
   align-items: center;
   justify-content: space-between;
   padding: var(--space-sm) var(--space-md);
-  border-bottom: 0.5px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
 }
 
 .mcp-panel-title-row {
@@ -353,8 +411,8 @@ onMounted(loadServers)
   align-items: center;
   gap: 6px;
   padding: 6px var(--space-md);
-  background: var(--bg-primary);
-  border-bottom: 0.5px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-subtle);
   font-size: 12px;
 }
 
@@ -376,8 +434,8 @@ onMounted(loadServers)
   flex-direction: column;
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-md);
-  border-bottom: 0.5px solid var(--border-subtle);
-  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
 }
 
 .mcp-form-row {
@@ -387,18 +445,21 @@ onMounted(loadServers)
 .mcp-form-input {
   width: 100%;
   padding: 6px 10px;
-  border: 0.5px solid var(--border-default);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  background: var(--bg-composer);
+  background: var(--bg-primary);
   color: var(--text-primary);
   font-size: 13px;
   font-family: var(--font-sans);
   outline: none;
-  transition: border-color var(--transition-fast);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .mcp-form-input:focus {
   border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 .mcp-form-input::placeholder {
@@ -476,7 +537,7 @@ onMounted(loadServers)
 .mcp-panel-body {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-xs);
+  padding: var(--space-sm);
 }
 
 .mcp-loading {
@@ -518,11 +579,13 @@ onMounted(loadServers)
   gap: 10px;
   padding: 8px 10px;
   border-radius: var(--radius-sm);
+  border: 1px solid transparent;
   transition: background var(--transition-fast);
 }
 
 .mcp-server-item:hover {
   background: var(--bg-tertiary);
+  border-color: var(--border-subtle);
 }
 
 .mcp-server-status {
@@ -597,7 +660,11 @@ onMounted(loadServers)
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

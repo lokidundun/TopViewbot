@@ -34,11 +34,11 @@ const colors = {
  */
 export function logo(): string {
   return `${colors.brightCyan}${colors.bold}
-  ______                 _    __    _                     ____           __ 
- /_  __/  ____     ____ | |  / /   (_)  ___  _      __   / __ )  ____   / /_
-  / /    / __ \   / __ \| | / /   / /  / _ \| | /| / /  / __  | / __ \ / __/
- / /    / /_/ /  / /_/ /| |/ /   / /  /  __/| |/ |/ /  / /_/ / / /_/ // /_  
-/_/     \____/  / .___/ |___/   /_/   \___/ |__/|__/  /_____/  \____/ \__/  
+  ______                  _    __    _                      ____            __ 
+ /_  __/  ____     ____  | |  / /   (_)  ___   _      __   / __ )  ____    / /_
+  / /    / __ \   / __ \ | | / /   / /  / _ \ | | /| / /  / __  | / __ \  / __/
+ / /    / /_/ /  / /_/ / | |/ /   / /  /  __/ | |/ |/ /  / /_/ / / /_/ / / /_  
+/_/     \____/  / .___/  |___/   /_/   \___/  |__/|__/  /_____/  \____/  \__/  
                /_/                                                          
 ${colors.reset}`;
 }
@@ -104,7 +104,7 @@ export function title(text: string): void {
  */
 export function url(label: string, urlStr: string): void {
   console.log(
-    `  ${colors.dim}${label}:${colors.reset} ${colors.cyan}${urlStr}${colors.reset}`
+    `  ${colors.dim}${label}:${colors.reset} ${colors.cyan}${urlStr}${colors.reset}`,
   );
 }
 

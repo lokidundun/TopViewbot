@@ -1,94 +1,94 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
-import { Download, AlertCircle } from 'lucide-vue-next'
-import type { FilePreviewInfo } from '../../composables/useFilePreview'
+import { ref, onMounted, watch } from "vue";
+import { Download, AlertCircle } from "lucide-vue-next";
+import type { FilePreviewInfo } from "../../composables/useFilePreview";
 
 const props = defineProps<{
-  preview: FilePreviewInfo
-}>()
+  preview: FilePreviewInfo;
+}>();
 
-const containerRef = ref<HTMLDivElement | null>(null)
-const isLoading = ref(true)
-const error = ref<string | null>(null)
-const docxPreviewModule = ref<any>(null)
+const containerRef = ref<HTMLDivElement | null>(null);
+const isLoading = ref(true);
+const error = ref<string | null>(null);
+const docxPreviewModule = ref<any>(null);
 
 // Dynamic import of docx-preview
 async function loadDocxPreview() {
   try {
-    const module = await import('docx-preview')
-    docxPreviewModule.value = module
-    return module
+    const module = await import("docx-preview");
+    docxPreviewModule.value = module;
+    return module;
   } catch (e) {
-    console.warn('docx-preview not installed, falling back to download mode')
-    return null
+    console.warn("docx-preview not installed, falling back to download mode");
+    return null;
   }
 }
 
 async function renderDocument() {
-  isLoading.value = true
-  error.value = null
+  isLoading.value = true;
+  error.value = null;
 
   try {
     // Check if it's a DOCX file
-    if (!props.preview.mime.includes('wordprocessingml')) {
-      error.value = '不支持的文档格式，仅支持 .docx 文件'
-      return
+    if (!props.preview.mime.includes("wordprocessingml")) {
+      error.value = "不支持的文档格式，仅支持 .docx 文件";
+      return;
     }
 
     // Load docx-preview module
-    const docxModule = await loadDocxPreview()
+    const docxModule = await loadDocxPreview();
     if (!docxModule) {
-      error.value = 'Word 预览组件未安装'
-      return
+      error.value = "Word 预览组件未安装";
+      return;
     }
 
     // Get file content
-    let blob: Blob
+    let blob: Blob;
     if (props.preview.content) {
       // Decode base64
-      const binary = atob(props.preview.content)
-      const bytes = new Uint8Array(binary.length)
+      const binary = atob(props.preview.content);
+      const bytes = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i)
+        bytes[i] = binary.charCodeAt(i);
       }
-      blob = new Blob([bytes], { type: props.preview.mime })
+      blob = new Blob([bytes], { type: props.preview.mime });
     } else {
       // Fetch from server
-      const res = await fetch(`/file/preview/${props.preview.id}`)
-      if (!res.ok) throw new Error('Failed to load file')
-      blob = await res.blob()
+      const res = await fetch(`/file/preview/${props.preview.id}`);
+      if (!res.ok) throw new Error("Failed to load file");
+      blob = await res.blob();
     }
 
     // Render document
     if (containerRef.value) {
-      containerRef.value.innerHTML = ''
+      containerRef.value.innerHTML = "";
       await docxModule.renderAsync(blob, containerRef.value, undefined, {
-        className: 'docx-wrapper',
+        className: "docx-wrapper",
         inWrapper: true,
-      })
+      });
     }
   } catch (e: any) {
-    error.value = e.message || '文档加载失败'
+    error.value = e.message || "文档加载失败";
   } finally {
-    isLoading.value = false
+    isLoading.value = false;
   }
 }
 
-onMounted(renderDocument)
-watch(() => props.preview.id, renderDocument)
+onMounted(renderDocument);
+watch(() => props.preview.id, renderDocument);
 
 // Download file
 function downloadFile() {
-  const link = document.createElement('a')
+  const link = document.createElement("a");
   if (props.preview.content) {
-    link.href = `data:${props.preview.mime};base64,${props.preview.content}`
+    link.href = `data:${props.preview.mime};base64,${props.preview.content}`;
   } else {
-    link.href = `/file/preview/${props.preview.id}`
+    link.href = `/file/preview/${props.preview.id}`;
   }
-  link.download = props.preview.filename
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
+  link.download = props.preview.filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 </script>
 
@@ -101,7 +101,7 @@ function downloadFile() {
 
     <div v-else-if="error" class="error-state">
       <AlertCircle :size="48" class="error-icon" />
-      <p class="error-message">{{ error }}</p>
+      <p class="status-message error">{{ error }}</p>
       <p class="error-hint">您可以下载文件后在本地查看</p>
       <button class="download-btn" @click="downloadFile">
         <Download :size="16" />
@@ -140,7 +140,9 @@ function downloadFile() {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .error-state {
@@ -157,11 +159,6 @@ function downloadFile() {
 .error-icon {
   color: var(--text-muted);
   opacity: 0.5;
-}
-
-.error-message {
-  color: var(--text-primary);
-  font-weight: 500;
 }
 
 .error-hint {

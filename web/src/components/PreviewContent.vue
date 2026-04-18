@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { Eye, X, Download, ExternalLink, Copy, Check } from 'lucide-vue-next'
-import { useFilePreview } from '../composables/useFilePreview'
-import { decodeBase64Utf8 } from '../utils/encoding'
+import { ref } from "vue";
+import { Eye, X, Download, ExternalLink, Copy, Check } from "lucide-vue-next";
+import { useFilePreview } from "../composables/useFilePreview";
+import { decodeBase64Utf8 } from "../utils/encoding";
 
 // Sub-renderers
-import ImagePreview from './preview/ImagePreview.vue'
-import CodePreview from './preview/CodePreview.vue'
-import MarkdownPreview from './preview/MarkdownPreview.vue'
-import HtmlPreview from './preview/HtmlPreview.vue'
-import OfficePreview from './preview/OfficePreview.vue'
+import ImagePreview from "./preview/ImagePreview.vue";
+import CodePreview from "./preview/CodePreview.vue";
+import MarkdownPreview from "./preview/MarkdownPreview.vue";
+import HtmlPreview from "./preview/HtmlPreview.vue";
+import OfficePreview from "./preview/OfficePreview.vue";
 
 const {
   previews,
@@ -18,55 +18,55 @@ const {
   previewType,
   selectPreview,
   closePreview,
-} = useFilePreview()
+} = useFilePreview();
 
-const copied = ref(false)
+const copied = ref(false);
 
 // Format file size
 function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 // Download file
 function downloadFile() {
-  if (!activePreview.value) return
-  const preview = activePreview.value
+  if (!activePreview.value) return;
+  const preview = activePreview.value;
 
-  const link = document.createElement('a')
+  const link = document.createElement("a");
   if (preview.content) {
     // Inline content
-    link.href = `data:${preview.mime};base64,${preview.content}`
+    link.href = `data:${preview.mime};base64,${preview.content}`;
   } else {
     // Large file from server
-    link.href = `/file/preview/${preview.id}`
+    link.href = `/file/preview/${preview.id}`;
   }
-  link.download = preview.filename
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
+  link.download = preview.filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 // Copy file path
 async function copyPath() {
-  if (!activePreview.value) return
-  await navigator.clipboard.writeText(activePreview.value.path)
-  copied.value = true
-  setTimeout(() => copied.value = false, 2000)
+  if (!activePreview.value) return;
+  await navigator.clipboard.writeText(activePreview.value.path);
+  copied.value = true;
+  setTimeout(() => (copied.value = false), 2000);
 }
 
 // Open in new tab (for HTML)
 function openInNewTab() {
-  if (!activePreview.value) return
-  const preview = activePreview.value
+  if (!activePreview.value) return;
+  const preview = activePreview.value;
 
   if (preview.content) {
-    const decoded = decodeBase64Utf8(preview.content)
-    const blob = new Blob([decoded], { type: `${preview.mime};charset=utf-8` })
-    window.open(URL.createObjectURL(blob), '_blank')
+    const decoded = decodeBase64Utf8(preview.content);
+    const blob = new Blob([decoded], { type: `${preview.mime};charset=utf-8` });
+    window.open(URL.createObjectURL(blob), "_blank");
   } else {
-    window.open(`/file/preview/${preview.id}`, '_blank')
+    window.open(`/file/preview/${preview.id}`, "_blank");
   }
 }
 </script>
@@ -97,7 +97,11 @@ function openInNewTab() {
           <span class="filename">{{ activePreview.filename }}</span>
           <span class="file-meta">{{ formatSize(activePreview.size) }}</span>
           <div class="file-actions">
-            <button class="action-btn" @click="copyPath" :title="copied ? '已复制' : '复制路径'">
+            <button
+              class="action-btn"
+              @click="copyPath"
+              :title="copied ? '已复制' : '复制路径'"
+            >
               <Check v-if="copied" :size="14" />
               <Copy v-else :size="14" />
             </button>
@@ -164,14 +168,15 @@ function openInNewTab() {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  background: var(--bg-primary);
 }
 
 .preview-tabs {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-xs);
-  padding: var(--space-sm);
-  border-bottom: 0.5px solid var(--border-default);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border-default);
   flex-shrink: 0;
 }
 
@@ -180,8 +185,8 @@ function openInNewTab() {
   align-items: center;
   gap: 6px;
   padding: 6px 8px 6px 10px;
-  background: var(--bg-secondary);
-  border: 0.5px solid var(--border-subtle);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   font-size: 12px;
   color: var(--text-secondary);
@@ -194,9 +199,9 @@ function openInNewTab() {
 }
 
 .preview-tab.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: white;
+  background: var(--bg-contrast);
+  border-color: var(--bg-contrast);
+  color: var(--text-contrast);
 }
 
 .tab-name {
@@ -238,9 +243,9 @@ function openInNewTab() {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: var(--space-sm);
-  background: var(--bg-secondary);
-  border-bottom: 0.5px solid var(--border-default);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-default);
   flex-shrink: 0;
 }
 
@@ -273,8 +278,8 @@ function openInNewTab() {
   width: 28px;
   height: 28px;
   padding: 0;
-  border: none;
-  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  background: transparent;
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   cursor: pointer;
@@ -282,7 +287,7 @@ function openInNewTab() {
 }
 
 .action-btn:hover {
-  background: var(--bg-elevated);
+  background: var(--bg-tertiary);
   color: var(--text-primary);
 }
 
