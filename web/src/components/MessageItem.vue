@@ -1,177 +1,204 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { marked } from 'marked'
-import DOMPurify from 'dompurify'
-import { Bot, User, Pencil, Trash2, X, Check } from 'lucide-vue-next'
-import type { Message, MessagePart } from '../api/client'
-import AgentSteps from './AgentSteps.vue'
-import { useUserProfile } from '../composables/useUserProfile'
+import { computed, ref } from "vue";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
+import { Bot, User, Pencil, Trash2, X, Check } from "lucide-vue-next";
+import type { Message, MessagePart } from "../api/client";
+import AgentSteps from "./AgentSteps.vue";
+import { useUserProfile } from "../composables/useUserProfile";
 
-const { profile, botAvatar } = useUserProfile()
+const { profile, botAvatar } = useUserProfile();
 
 const props = defineProps<{
-  message: Message
-  isStreaming?: boolean
-}>()
+  message: Message;
+  isStreaming?: boolean;
+}>();
 
 const emit = defineEmits<{
-  'delete-part': [messageId: string, partId: string]
-  'update-part': [messageId: string, partId: string, updates: { text?: string }]
-}>()
+  "delete-part": [messageId: string, partId: string];
+  "update-part": [
+    messageId: string,
+    partId: string,
+    updates: { text?: string },
+  ];
+}>();
 
 // 编辑状态
-const editingPartId = ref<string | null>(null)
-const editText = ref('')
-const deleteConfirmPartId = ref<string | null>(null)
+const editingPartId = ref<string | null>(null);
+const editText = ref("");
+const deleteConfirmPartId = ref<string | null>(null);
 
 function startEdit(part: MessagePart) {
-  if (part.type !== 'text' || !part.text) return
-  editingPartId.value = part.id
-  editText.value = part.text
+  if (part.type !== "text" || !part.text) return;
+  editingPartId.value = part.id;
+  editText.value = part.text;
 }
 
 function cancelEdit() {
-  editingPartId.value = null
-  editText.value = ''
+  editingPartId.value = null;
+  editText.value = "";
 }
 
 function confirmEdit(partId: string) {
   if (editText.value.trim()) {
-    emit('update-part', props.message.info.id, partId, { text: editText.value.trim() })
+    emit("update-part", props.message.info.id, partId, {
+      text: editText.value.trim(),
+    });
   }
-  cancelEdit()
+  cancelEdit();
 }
 
 function startDelete(part: MessagePart) {
-  deleteConfirmPartId.value = part.id
+  deleteConfirmPartId.value = part.id;
 }
 
 function cancelDelete() {
-  deleteConfirmPartId.value = null
+  deleteConfirmPartId.value = null;
 }
 
 function confirmDelete(partId: string) {
-  emit('delete-part', props.message.info.id, partId)
-  cancelDelete()
+  emit("delete-part", props.message.info.id, partId);
+  cancelDelete();
 }
 
 // Configure marked
 marked.setOptions({
   breaks: true,
-  gfm: true
-})
+  gfm: true,
+});
 
 // User message parts (simple: only text and file)
 const userParts = computed(() => {
   return props.message.parts
-    .filter(p => {
-      if (p.type === 'text' && (p as any).synthetic) return false
-      return p.type === 'text' || p.type === 'file'
+    .filter((p) => {
+      if (p.type === "text" && (p as any).synthetic) return false;
+      return p.type === "text" || p.type === "file";
     })
-    .map((part, index) => ({ part, index }))
-})
+    .map((part, index) => ({ part, index }));
+});
 
 // Agent message: group step parts into one foldable unit
-interface Step { parts: MessagePart[]; isComplete: boolean }
+interface Step {
+  parts: MessagePart[];
+  isComplete: boolean;
+}
 type GroupedItem =
-  | { type: 'steps'; steps: Step[] }
-  | { type: 'text'; part: MessagePart }
-  | { type: 'file'; part: MessagePart }
+  | { type: "steps"; steps: Step[] }
+  | { type: "text"; part: MessagePart }
+  | { type: "file"; part: MessagePart };
 
 const groupedContent = computed<GroupedItem[]>(() => {
-  const result: GroupedItem[] = []
-  let stepsGroup: Extract<GroupedItem, { type: 'steps' }> | null = null
-  let currentStep: Step | null = null
+  const result: GroupedItem[] = [];
+  let stepsGroup: Extract<GroupedItem, { type: "steps" }> | null = null;
+  let currentStep: Step | null = null;
 
   for (const part of props.message.parts) {
-    if (part.type === 'step-start') {
+    if (part.type === "step-start") {
       if (!stepsGroup) {
-        stepsGroup = { type: 'steps', steps: [] }
-        result.push(stepsGroup)
+        stepsGroup = { type: "steps", steps: [] };
+        result.push(stepsGroup);
       }
-      currentStep = { parts: [], isComplete: false }
-      stepsGroup.steps.push(currentStep)
-    } else if (part.type === 'step-finish') {
-      if (currentStep) currentStep.isComplete = true
-      currentStep = null
-    } else if (part.type === 'tool' || part.type === 'reasoning') {
+      currentStep = { parts: [], isComplete: false };
+      stepsGroup.steps.push(currentStep);
+    } else if (part.type === "step-finish") {
+      if (currentStep) currentStep.isComplete = true;
+      currentStep = null;
+    } else if (part.type === "tool" || part.type === "reasoning") {
       if (currentStep) {
-        currentStep.parts.push(part)
+        currentStep.parts.push(part);
       } else {
         // tool/reasoning outside explicit steps — create implicit step group
         if (!stepsGroup) {
-          stepsGroup = { type: 'steps', steps: [] }
-          result.push(stepsGroup)
+          stepsGroup = { type: "steps", steps: [] };
+          result.push(stepsGroup);
         }
         if (stepsGroup.steps.length === 0) {
-          const implicit: Step = { parts: [], isComplete: true }
-          stepsGroup.steps.push(implicit)
+          const implicit: Step = { parts: [], isComplete: true };
+          stepsGroup.steps.push(implicit);
         }
-        stepsGroup.steps[stepsGroup.steps.length - 1].parts.push(part)
+        stepsGroup.steps[stepsGroup.steps.length - 1].parts.push(part);
       }
-    } else if (part.type === 'text' && !(part as any).synthetic && part.text) {
-      result.push({ type: 'text', part })
-    } else if (part.type === 'file') {
-      result.push({ type: 'file', part })
+    } else if (part.type === "text" && !(part as any).synthetic && part.text) {
+      result.push({ type: "text", part });
+    } else if (part.type === "file") {
+      result.push({ type: "file", part });
     }
   }
-  return result
-})
+  return result;
+});
 
 // Check if a file part is an image
 function isImageFile(part: MessagePart): boolean {
-  const mime = (part as any).mime || ''
-  return mime.startsWith('image/')
+  const mime = (part as any).mime || "";
+  return mime.startsWith("image/");
 }
 
 // 将 file:// URL 转为 HTTP URL（浏览器无法加载 file:// 协议）
 function resolveFileUrl(url: string): string {
-  if (url.startsWith('file://')) {
-    return `/file/upload?path=${encodeURIComponent(url.slice(7))}`
+  if (url.startsWith("file://")) {
+    return `/file/upload?path=${encodeURIComponent(url.slice(7))}`;
   }
-  return url
+  return url;
 }
 
 // Image preview state
-const previewImageUrl = ref<string | null>(null)
+const previewImageUrl = ref<string | null>(null);
 
 function openImagePreview(url: string) {
-  previewImageUrl.value = url
+  previewImageUrl.value = url;
 }
 
 function closeImagePreview() {
-  previewImageUrl.value = null
+  previewImageUrl.value = null;
 }
 
 // Format text with marked and sanitize with DOMPurify
 function formatText(text: string): string {
   try {
-    const html = marked.parse(text) as string
-    return DOMPurify.sanitize(html)
+    const html = marked.parse(text) as string;
+    return DOMPurify.sanitize(html);
   } catch (e) {
-    console.error('Markdown parse error:', e)
-    return DOMPurify.sanitize(text)
+    console.error("Markdown parse error:", e);
+    return DOMPurify.sanitize(text);
   }
 }
 </script>
 
 <template>
-  <div class="message-row" :class="{ 'user-row': message.info.role === 'user', 'agent-row': message.info.role !== 'user' }">
+  <div
+    class="message-row"
+    :class="{
+      'user-row': message.info.role === 'user',
+      'agent-row': message.info.role !== 'user',
+    }"
+  >
     <div class="avatar shadow-sm">
       <template v-if="message.info.role === 'user'">
-        <img v-if="profile.avatarUrl" :src="profile.avatarUrl" alt="Avatar" class="avatar-img" />
+        <img
+          v-if="profile.avatarUrl"
+          :src="profile.avatarUrl"
+          alt="Avatar"
+          class="avatar-img"
+        />
         <User v-else :size="18" />
       </template>
       <template v-else>
-        <img v-if="botAvatar.botAvatarUrl" :src="botAvatar.botAvatarUrl" alt="Bot" class="avatar-img" />
+        <img
+          v-if="botAvatar.botAvatarUrl"
+          :src="botAvatar.botAvatarUrl"
+          alt="Bot"
+          class="avatar-img"
+        />
         <Bot v-else :size="18" />
       </template>
     </div>
 
     <!-- User message -->
-    <div v-if="message.info.role === 'user'" class="message-wrapper user-wrapper">
+    <div
+      v-if="message.info.role === 'user'"
+      class="message-wrapper user-wrapper"
+    >
       <div class="message-bubble user-bubble">
-        <div class="message-sender-name" v-if="profile.name">{{ profile.name }}</div>
         <div class="message-content">
           <template v-for="item in userParts" :key="item.part.id || item.index">
             <!-- File Attachment -->
@@ -181,24 +208,53 @@ function formatText(text: string): string {
                 :src="resolveFileUrl((item.part as any).url)"
                 :alt="(item.part as any).filename || 'Uploaded image'"
                 class="uploaded-image"
-                @click="openImagePreview(resolveFileUrl((item.part as any).url))"
+                @click="
+                  openImagePreview(resolveFileUrl((item.part as any).url))
+                "
               />
-              <a v-else :href="resolveFileUrl((item.part as any).url)" target="_blank" class="file-badge">
+              <a
+                v-else
+                :href="resolveFileUrl((item.part as any).url)"
+                target="_blank"
+                class="file-badge"
+              >
                 <span class="file-icon">📄</span>
-                <span class="file-name">{{ (item.part as any).filename || 'File' }}</span>
+                <span class="file-name">{{
+                  (item.part as any).filename || "File"
+                }}</span>
               </a>
             </div>
             <!-- Text -->
-            <div v-else-if="item.part.type === 'text'" class="text-part" :class="{ editing: editingPartId === item.part.id }">
+            <div
+              v-else-if="item.part.type === 'text'"
+              class="text-part"
+              :class="{ editing: editingPartId === item.part.id }"
+            >
               <div v-if="editingPartId === item.part.id" class="edit-mode">
-                <textarea v-model="editText" class="edit-textarea" rows="4" @keyup.escape="cancelEdit"></textarea>
+                <textarea
+                  v-model="editText"
+                  class="edit-textarea"
+                  rows="4"
+                  @keyup.escape="cancelEdit"
+                ></textarea>
                 <div class="edit-actions">
-                  <button class="btn btn-ghost btn-sm" @click="cancelEdit"><X :size="14" /> 取消</button>
-                  <button class="btn btn-primary btn-sm" @click="confirmEdit(item.part.id)" :disabled="!editText.trim()"><Check :size="14" /> 保存</button>
+                  <button class="btn btn-ghost btn-sm" @click="cancelEdit">
+                    <X :size="14" /> 取消
+                  </button>
+                  <button
+                    class="btn btn-primary btn-sm"
+                    @click="confirmEdit(item.part.id)"
+                    :disabled="!editText.trim()"
+                  >
+                    <Check :size="14" /> 保存
+                  </button>
                 </div>
               </div>
               <template v-else>
-                <div class="markdown-content" v-html="formatText(item.part.text || '')"></div>
+                <div
+                  class="markdown-content"
+                  v-html="formatText(item.part.text || '')"
+                ></div>
               </template>
             </div>
           </template>
@@ -206,14 +262,25 @@ function formatText(text: string): string {
       </div>
       <!-- 用户消息操作按钮 -->
       <div class="message-actions" v-if="!editingPartId">
-        <button class="action-btn" @click="startEdit(message.parts.find(p => p.type === 'text')!)" title="编辑"><Pencil :size="14" /></button>
-        <button class="action-btn danger" @click="startDelete(message.parts.find(p => p.type === 'text')!)" title="删除"><Trash2 :size="14" /></button>
+        <button
+          class="action-btn"
+          @click="startEdit(message.parts.find((p) => p.type === 'text')!)"
+          title="编辑"
+        >
+          <Pencil :size="14" />
+        </button>
+        <button
+          class="action-btn danger"
+          @click="startDelete(message.parts.find((p) => p.type === 'text')!)"
+          title="删除"
+        >
+          <Trash2 :size="14" />
+        </button>
       </div>
     </div>
 
     <!-- Agent message (no bubble) -->
     <div v-else class="message-wrapper agent-wrapper">
-      <div class="message-sender-name">{{ message.info.model?.modelID || 'TopViewbot' }}</div>
       <div class="agent-content">
         <template v-for="(item, idx) in groupedContent" :key="idx">
           <!-- All agentic steps collapsed into one unit -->
@@ -231,13 +298,24 @@ function formatText(text: string): string {
               class="uploaded-image"
               @click="openImagePreview(resolveFileUrl((item.part as any).url))"
             />
-            <a v-else :href="resolveFileUrl((item.part as any).url)" target="_blank" class="file-badge">
+            <a
+              v-else
+              :href="resolveFileUrl((item.part as any).url)"
+              target="_blank"
+              class="file-badge"
+            >
               <span class="file-icon">📄</span>
-              <span class="file-name">{{ (item.part as any).filename || 'File' }}</span>
+              <span class="file-name">{{
+                (item.part as any).filename || "File"
+              }}</span>
             </a>
           </div>
           <!-- Direct text output (always visible) -->
-          <div v-else-if="item.type === 'text'" class="markdown-content" v-html="formatText(item.part.text || '')"></div>
+          <div
+            v-else-if="item.type === 'text'"
+            class="markdown-content"
+            v-html="formatText(item.part.text || '')"
+          ></div>
         </template>
       </div>
     </div>
@@ -245,7 +323,11 @@ function formatText(text: string): string {
 
   <!-- 图片预览模态框 -->
   <Teleport to="body">
-    <div v-if="previewImageUrl" class="image-preview-overlay" @click="closeImagePreview">
+    <div
+      v-if="previewImageUrl"
+      class="image-preview-overlay"
+      @click="closeImagePreview"
+    >
       <img :src="previewImageUrl" class="preview-image" @click.stop />
       <button class="preview-close" @click="closeImagePreview">
         <X :size="24" />
@@ -255,7 +337,11 @@ function formatText(text: string): string {
 
   <!-- 删除确认对话框 - 使用 Teleport 移到 body 避免 transform 影响 -->
   <Teleport to="body">
-    <div v-if="deleteConfirmPartId" class="dialog-overlay" @click="cancelDelete">
+    <div
+      v-if="deleteConfirmPartId"
+      class="dialog-overlay"
+      @click="cancelDelete"
+    >
       <div class="dialog" @click.stop>
         <div class="dialog-header">
           <span>删除消息内容</span>
@@ -268,8 +354,13 @@ function formatText(text: string): string {
           <p class="dialog-warning">此操作不可撤销。</p>
         </div>
         <div class="dialog-footer">
-          <button class="btn btn-ghost btn-sm" @click="cancelDelete">取消</button>
-          <button class="btn btn-danger btn-sm" @click="confirmDelete(deleteConfirmPartId!)">
+          <button class="btn btn-ghost btn-sm" @click="cancelDelete">
+            取消
+          </button>
+          <button
+            class="btn btn-danger btn-sm"
+            @click="confirmDelete(deleteConfirmPartId!)"
+          >
             <Trash2 :size="14" /> 删除
           </button>
         </div>
@@ -281,16 +372,22 @@ function formatText(text: string): string {
 <style scoped>
 .message-row {
   display: flex;
-  gap: 12px;
-  padding: 12px var(--space-lg);
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-xl);
   width: 100%;
   opacity: 0;
   animation: fade-up 0.3s var(--ease-smooth) forwards;
 }
 
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .user-row {
@@ -305,6 +402,8 @@ function formatText(text: string): string {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
 }
 
 .user-row .avatar {
@@ -315,6 +414,8 @@ function formatText(text: string): string {
 .agent-row .avatar {
   background: var(--accent);
   color: white;
+  border-color: transparent;
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 .avatar-img {
@@ -328,7 +429,7 @@ function formatText(text: string): string {
 .message-wrapper {
   display: flex;
   flex-direction: column;
-  max-width: 720px;
+  max-width: 760px;
 }
 
 .user-wrapper {
@@ -344,31 +445,29 @@ function formatText(text: string): string {
   line-height: 1.5;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  border: 1px solid transparent;
+  box-shadow: var(--shadow-sm);
 }
 
 .user-bubble {
-  background: var(--bg-tertiary);
+  background: var(--user-bubble);
   color: var(--text-primary);
+  border-color: var(--border-subtle);
 }
 
 .agent-wrapper {
-  max-width: 720px;
+  max-width: 760px;
   padding-top: 2px;
 }
 
 .agent-content {
   width: 100%;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md) var(--space-lg);
+  box-shadow: var(--shadow-sm);
 }
-
-.message-sender-name {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  margin-bottom: 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
 
 /* Prose / Markdown Styling */
 .markdown-content {
@@ -413,7 +512,7 @@ function formatText(text: string): string {
   border: 0.5px solid var(--border-default);
 }
 
-:root[data-theme='dark'] .markdown-content :deep(pre) {
+:root[data-theme="dark"] .markdown-content :deep(pre) {
   background: #1a1a1e;
 }
 
@@ -438,7 +537,7 @@ function formatText(text: string): string {
 .markdown-content :deep(a) {
   color: var(--accent);
   text-decoration: underline;
-  text-decoration-color: rgba(204, 77, 40, 0.3);
+  text-decoration-color: rgba(0, 183, 199, 0.35);
   text-underline-offset: 2px;
 }
 .markdown-content :deep(a:hover) {
@@ -480,7 +579,8 @@ function formatText(text: string): string {
   align-items: center;
   justify-content: center;
   border: none;
-  background: var(--bg-tertiary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   cursor: pointer;
@@ -488,7 +588,7 @@ function formatText(text: string): string {
 }
 
 .action-btn:hover {
-  background: var(--bg-elevated);
+  background: var(--bg-primary);
   color: var(--text-primary);
 }
 
@@ -570,7 +670,7 @@ function formatText(text: string): string {
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: var(--bg-secondary);
+  background: var(--bg-tertiary);
   border: 0.5px solid var(--border-default);
   border-radius: var(--radius-md);
   font-size: 13px;
@@ -595,7 +695,6 @@ function formatText(text: string): string {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 </style>
 
 <!-- Non-scoped styles for Teleported dialog -->
@@ -744,4 +843,3 @@ function formatText(text: string): string {
   background: rgba(255, 255, 255, 0.2);
 }
 </style>
-

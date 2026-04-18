@@ -1,39 +1,34 @@
 <script setup lang="ts">
-import { Square, PanelLeftOpen, Folder, User, LogOut } from 'lucide-vue-next'
-import type { Session } from '../api/client'
-import { useAuth } from '../composables/useAuth'
+import { Square, Folder } from "lucide-vue-next";
+import type { Session } from "../api/client";
+import { useLocale } from "../composables/useLocale";
 
 defineProps<{
-  session: Session | null
-  isStreaming: boolean
-  sidebarCollapsed: boolean
-  isSummarizing?: boolean
-  retryInfo?: { attempt: number; message: string; next: number } | null
-}>()
+  session: Session | null;
+  isStreaming: boolean;
+  isSummarizing?: boolean;
+  retryInfo?: { attempt: number; message: string; next: number } | null;
+}>();
 
 const emit = defineEmits<{
-  'toggle-sidebar': []
-  'abort': []
-}>()
+  abort: [];
+}>();
 
-const { user, logout } = useAuth()
+const { t } = useLocale();
 </script>
 
 <template>
   <header class="header glass-header">
     <div class="header-left">
-      <button
-        v-if="sidebarCollapsed"
-        class="btn btn-ghost btn-icon"
-        @click="emit('toggle-sidebar')"
-        title="展开侧边栏"
-      >
-        <PanelLeftOpen :size="20" />
-      </button>
-
       <div class="session-info" v-if="session">
-        <span class="session-title">{{ session.title || '新会话' }}</span>
-        <span v-if="session.directory && session.directory !== '.'" class="session-dir" :title="session.directory">
+        <span class="session-title">{{
+          session.title || t("header.newSession")
+        }}</span>
+        <span
+          v-if="session.directory && session.directory !== '.'"
+          class="session-dir"
+          :title="session.directory"
+        >
           <Folder :size="12" /> {{ session.directory }}
         </span>
       </div>
@@ -43,12 +38,19 @@ const { user, logout } = useAuth()
       <!-- Retry Indicator -->
       <div v-if="retryInfo" class="streaming-badge retry-badge">
         <span class="retry-dot"></span>
-        <span class="streaming-text">重试中 (第{{ retryInfo.attempt }}次) - {{ retryInfo.message }}</span>
+        <span class="streaming-text">
+          {{
+            t("header.retrying", {
+              attempt: retryInfo.attempt,
+              message: retryInfo.message,
+            })
+          }}
+        </span>
       </div>
       <!-- Streaming Indicator (centered when streaming) -->
       <div v-else-if="isStreaming" class="streaming-badge">
         <span class="streaming-dot"></span>
-        <span class="streaming-text">生成中</span>
+        <span class="streaming-text">{{ t("header.generating") }}</span>
       </div>
     </div>
 
@@ -60,19 +62,8 @@ const { user, logout } = useAuth()
         @click="emit('abort')"
       >
         <Square :size="14" fill="currentColor" />
-        <span>停止</span>
+        <span>{{ t("common.stop") }}</span>
       </button>
-
-      <!-- User Info & Logout -->
-      <div v-if="user" class="user-info">
-        <span class="user-name" :title="user.username">
-          <User :size="14" />
-          {{ user.displayName || user.username }}
-        </span>
-        <button class="btn btn-ghost btn-icon" @click="logout" title="登出">
-          <LogOut :size="16" />
-        </button>
-      </div>
     </div>
   </header>
 </template>
@@ -80,15 +71,14 @@ const { user, logout } = useAuth()
 <style scoped>
 .glass-header {
   background: transparent;
-  border-bottom: none;
+  border-bottom: 1px solid var(--border-subtle);
   z-index: 10;
   font-family: var(--font-sans);
 }
 
 .session-info {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  gap: var(--space-sm);
 }
 
 .session-title {
@@ -142,9 +132,18 @@ const { user, logout } = useAuth()
 }
 
 @keyframes pulse {
-  0% { transform: scale(0.95); opacity: 0.8; }
-  50% { transform: scale(1.05); opacity: 1; }
-  100% { transform: scale(0.95); opacity: 0.8; }
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
 }
 
 .abort-btn {
@@ -155,24 +154,5 @@ const { user, logout } = useAuth()
 
 .abort-btn:hover {
   background: var(--error-subtle);
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-left: var(--space-sm);
-}
-
-.user-name {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 13px;
-  color: var(--text-secondary);
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 </style>
