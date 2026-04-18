@@ -152,7 +152,7 @@ TopViewbot 支持集成以下配置：
 
 ### 方式一：下载 Release（推荐）
 
-从 [Releases](https://github.com/contrueCT/topviewbot/releases) 下载对应平台的压缩包：
+从 [Releases](https://github.com/lokidundun/TopViewbot/releases) 下载对应平台的压缩包：
 
 | 平台 | 架构 | 文件名 |
 |------|------|--------|
@@ -164,7 +164,7 @@ TopViewbot 支持集成以下配置：
 **macOS（推荐使用 Homebrew）：**
 
 ```bash
-brew install contrueCT/topviewbot/topviewbot
+brew install lokidundun/TopViewbot/topviewbot
 ```
 
 更新使用 `brew upgrade topviewbot`，卸载使用 `brew uninstall topviewbot`。
@@ -173,7 +173,7 @@ brew install contrueCT/topviewbot/topviewbot
 
 ```bash
 # 下载并解压（以 Linux x64 为例）
-curl -fsSL https://github.com/contrueCT/topviewbot/releases/latest/download/topviewbot-linux-x64.tar.gz | tar -xz
+curl -fsSL https://github.com/lokidundun/TopViewbot/releases/latest/download/topviewbot-linux-x64.tar.gz | tar -xz
 cd topviewbot-linux-x64
 
 # 运行
@@ -189,7 +189,7 @@ cd topviewbot-linux-x64
 ### 方式二：一键安装脚本（Linux / macOS）
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/contrueCT/topviewbot/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/lokidundun/TopViewbot/main/install.sh | bash
 ```
 
 安装完成后，可以在任意目录运行 `topviewbot` 命令。
@@ -200,7 +200,7 @@ curl -fsSL https://raw.githubusercontent.com/contrueCT/topviewbot/main/install.s
 
 ```bash
 # 克隆仓库
-git clone https://github.com/contrueCT/topviewbot.git
+git clone https://github.com/lokidundun/TopViewbot.git
 cd topviewbot
 
 # 安装依赖

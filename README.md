@@ -148,7 +148,7 @@ Notes:
 
 ### Option 1: Download Release (Recommended)
 
-Download from [Releases](https://github.com/contrueCT/topviewbot/releases):
+Download from [Releases](https://github.com/lokidundun/TopViewbot/releases):
 
 | Platform | Architecture  | Filename                              |
 | -------- | ------------- | ------------------------------------- |
@@ -160,7 +160,7 @@ Download from [Releases](https://github.com/contrueCT/topviewbot/releases):
 **macOS (Homebrew recommended):**
 
 ```bash
-brew install contrueCT/topviewbot/topviewbot
+brew install lokidundun/TopViewbot/topviewbot
 ```
 
 Update with `brew upgrade topviewbot`, uninstall with `brew uninstall topviewbot`.
@@ -169,7 +169,7 @@ Update with `brew upgrade topviewbot`, uninstall with `brew uninstall topviewbot
 
 ```bash
 # Download and extract (Linux x64 example)
-curl -fsSL https://github.com/contrueCT/topviewbot/releases/latest/download/topviewbot-linux-x64.tar.gz | tar -xz
+curl -fsSL https://github.com/lokidundun/TopViewbot/releases/latest/download/topviewbot-linux-x64.tar.gz | tar -xz
 cd topviewbot-linux-x64
 
 # Run
@@ -185,7 +185,7 @@ cd topviewbot-linux-x64
 ### Option 2: One-Line Install Script (Linux / macOS)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/contrueCT/topviewbot/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/lokidundun/TopViewbot/main/install.sh | bash
 ```
 
 After installation, run `topviewbot` from any directory.
@@ -196,7 +196,7 @@ Requires [Bun](https://bun.sh).
 
 ```bash
 # Clone repository
-git clone https://github.com/contrueCT/topviewbot.git
+git clone https://github.com/lokidundun/TopViewbot.git
 cd topviewbot
 
 # Install dependencies

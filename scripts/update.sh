@@ -14,7 +14,7 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 # 配置
-GITHUB_REPO="contrueCT/topviewbot"
+GITHUB_REPO="lokidundun/TopViewbot"
 INSTALL_DIR="${TOPVIEWBOT_INSTALL_DIR:-$HOME/.topviewbot}"
 
 # 如果脚本在安装目录内运行，自动检测安装目录
