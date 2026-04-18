@@ -103,13 +103,18 @@ function verifyJwt(token: string): Record<string, unknown> | null {
 }
 
 export namespace UserAuth {
-  export async function register(username: string, password: string, displayName?: string): Promise<{ success: false; error: string } | { success: true; user: Omit<User, "passwordHash"> }> {
+  const INVITE_CODE = "topview"
+
+  export async function register(username: string, password: string, displayName?: string, inviteCode?: string): Promise<{ success: false; error: string } | { success: true; user: Omit<User, "passwordHash"> }> {
     const normalized = username.trim().toLowerCase()
     if (!normalized || normalized.length < 2 || normalized.length > 32) {
       return { success: false, error: "Username must be 2-32 characters" }
     }
     if (!password || password.length < 6) {
       return { success: false, error: "Password must be at least 6 characters" }
+    }
+    if (inviteCode !== INVITE_CODE) {
+      return { success: false, error: "Invalid invite code" }
     }
 
     const users = await loadUsers()

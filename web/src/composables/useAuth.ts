@@ -81,6 +81,7 @@ export function useAuth() {
     username: string,
     password: string,
     displayName?: string,
+    inviteCode?: string,
   ): Promise<boolean> {
     loading.value = true;
     error.value = "";
@@ -88,7 +89,7 @@ export function useAuth() {
       const res = await fetch(`${API_BASE_URL}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, displayName }),
+        body: JSON.stringify({ username, password, displayName, inviteCode }),
       });
       const data = await res.json();
       if (data.success) {

@@ -10,6 +10,7 @@ const mode = ref<"login" | "register">("login");
 const username = ref("");
 const password = ref("");
 const displayName = ref("");
+const inviteCode = ref("");
 const registerError = ref("");
 const registerSuccess = ref("");
 
@@ -27,12 +28,14 @@ async function handleRegister() {
     username.value,
     password.value,
     displayName.value || undefined,
+    inviteCode.value,
   );
   if (ok) {
     if (isLoggedIn.value) return;
     registerSuccess.value = t("login.registerSuccess");
     mode.value = "login";
     password.value = "";
+    inviteCode.value = "";
   } else {
     registerError.value = error.value;
   }
@@ -103,6 +106,17 @@ onMounted(async () => {
             :placeholder="t('login.passwordPlaceholder')"
             required
             minlength="6"
+          />
+        </div>
+
+        <div v-if="mode === 'register'" class="input-group">
+          <label class="label">{{ t("login.inviteCode") }}</label>
+          <input
+            v-model="inviteCode"
+            type="text"
+            class="input"
+            :placeholder="t('login.inviteCodePlaceholder')"
+            required
           />
         </div>
 
