@@ -51,24 +51,24 @@ jobs:
           cat > homebrew-tap/Formula/topviewbot.rb << 'EOF'
           class Topviewbot < Formula
             desc "TopViewbot - AI Assistant"
-            homepage "https://github.com/contrueCT/topviewbot"
+            homepage "https://github.com/lokidundun/TopViewbot"
             version "${{ steps.release.outputs.version }}"
             license "MIT"
 
             on_macos do
               on_arm do
-                url "https://github.com/contrueCT/topviewbot/releases/download/${{ steps.release.outputs.tag }}/topviewbot-darwin-arm64-${{ steps.release.outputs.tag }}.tar.gz"
+                url "https://github.com/lokidundun/TopViewbot/releases/download/${{ steps.release.outputs.tag }}/topviewbot-darwin-arm64-${{ steps.release.outputs.tag }}.tar.gz"
                 sha256 "${{ steps.sha256.outputs.darwin_arm64 }}"
               end
             end
 
             on_linux do
               on_arm do
-                url "https://github.com/contrueCT/topviewbot/releases/download/${{ steps.release.outputs.tag }}/topviewbot-linux-arm64-${{ steps.release.outputs.tag }}.tar.gz"
+                url "https://github.com/lokidundun/TopViewbot/releases/download/${{ steps.release.outputs.tag }}/topviewbot-linux-arm64-${{ steps.release.outputs.tag }}.tar.gz"
                 sha256 "${{ steps.sha256.outputs.linux_arm64 }}"
               end
               on_intel do
-                url "https://github.com/contrueCT/topviewbot/releases/download/${{ steps.release.outputs.tag }}/topviewbot-linux-x64-${{ steps.release.outputs.tag }}.tar.gz"
+                url "https://github.com/lokidundun/TopViewbot/releases/download/${{ steps.release.outputs.tag }}/topviewbot-linux-x64-${{ steps.release.outputs.tag }}.tar.gz"
                 sha256 "${{ steps.sha256.outputs.linux_x64 }}"
               end
             end
